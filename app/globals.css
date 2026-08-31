@@ -1,0 +1,79 @@
+:root {
+  color-scheme: light dark;
+  --bg: #ffffff;
+  --fg: #101114;
+  --muted: #5c6070;
+  --border: #e3e5ea;
+  --accent: #2f5fe0;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0f1014;
+    --fg: #f2f3f5;
+    --muted: #9aa0ad;
+    --border: #262a33;
+    --accent: #7c9cff;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--fg);
+  font: 15px/1.6 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+main {
+  max-width: 44rem;
+  margin: 0 auto;
+  padding: 3rem 1.5rem;
+}
+
+h1 {
+  font-size: 1.6rem;
+  letter-spacing: -0.01em;
+  margin: 0 0 0.5rem;
+}
+
+p {
+  color: var(--muted);
+  margin: 0 0 1.5rem;
+}
+
+nav {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+  padding: 1rem 1.5rem;
+  border-bottom: 1px solid var(--border);
+}
+
+nav a {
+  color: var(--fg);
+  text-decoration: none;
+  font-weight: 500;
+}
+
+nav .spacer {
+  flex: 1;
+}
+
+.centered {
+  min-height: 70vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.9em;
+  background: color-mix(in srgb, var(--fg) 8%, transparent);
+  padding: 0.15em 0.4em;
+  border-radius: 4px;
+}
