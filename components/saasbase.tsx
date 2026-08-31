@@ -22,4 +22,5 @@ export {
   SignedIn,
   SignedOut,
   NavUser,
+  AccountSettings,
 } from "@saasbase-io/elements/react";

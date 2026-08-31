@@ -1,79 +1,862 @@
-:root {
-  color-scheme: light dark;
-  --bg: #ffffff;
-  --fg: #101114;
-  --muted: #5c6070;
-  --border: #e3e5ea;
-  --accent: #2f5fe0;
+/*
+ * The demo's own chrome.
+ *
+ * ---------------------------------------------------------------------------
+ * Why every selector carries a class
+ * ---------------------------------------------------------------------------
+ * The widgets pull `@saasbase-io/core-elements`' `styles.css` from jsDelivr and
+ * append it to <head> at runtime — after this file. That sheet ships Tailwind's
+ * preflight, which styles bare `body`, `h1`, `p`, `a`, `*`. Same specificity,
+ * later in the cascade, so it wins:
+ *
+ *     body { font-family: var(--sb-sem-font-family) }   <- unset off the auth
+ *                                                          pages, so the whole
+ *                                                          app fell back to Times
+ *     body { background-color: hsl(var(--background));
+ *            color: hsl(var(--foreground)) }            <- ate the palette below
+ *
+ * `@layer` would make it worse: unlayered rules beat layered ones. So every rule
+ * here is written with at least one class (`body.pv-body`, `.pv-hero p`), which
+ * is specificity 0-1-x against preflight's 0-0-x and survives regardless of load
+ * order. Element selectors are only used *inside* a `.pv-` scope, never alone.
+ *
+ * ---------------------------------------------------------------------------
+ * Theme
+ * ---------------------------------------------------------------------------
+ * `data-theme` on <html> is the same switch the widgets read, so the toggle in
+ * the header themes the app chrome and the sign-in card together. Colours below
+ * are picked off the project's own branding.css — crimson in light, rose in
+ * dark — so the chrome and the widget look like one product rather than a form
+ * dropped onto someone else's page.
+ */
+
+/* ==========================================================================
+   Tokens
+   ========================================================================== */
+
+:root,
+[data-theme="light"] {
+  --pv-paper: #faf7f8;
+  --pv-surface: #ffffff;
+  --pv-surface-sunken: #f4eff1;
+  --pv-ink: #1a1216;
+  --pv-ink-soft: #4a4046;
+  --pv-muted: #7c6f76;
+  --pv-line: #e9e1e4;
+  --pv-line-strong: #d8ccd1;
+
+  /* hsl(337 96% 32%) is the project's own button colour, from branding.css. */
+  --pv-accent: hsl(337 96% 32%);
+  --pv-accent-hover: hsl(337 96% 26%);
+  --pv-accent-ink: #ffffff;
+  --pv-accent-wash: hsl(337 96% 32% / 0.07);
+  --pv-accent-edge: hsl(337 96% 32% / 0.18);
+
+  --pv-shadow-sm: 0 1px 2px hsl(337 20% 12% / 0.05);
+  --pv-shadow-md: 0 4px 16px -4px hsl(337 20% 12% / 0.1);
+  --pv-shadow-lg: 0 24px 48px -24px hsl(337 24% 12% / 0.22);
+  --pv-glow: radial-gradient(
+    60% 60% at 50% 0%,
+    hsl(337 96% 32% / 0.09) 0%,
+    transparent 70%
+  );
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #0f1014;
-    --fg: #f2f3f5;
-    --muted: #9aa0ad;
-    --border: #262a33;
-    --accent: #7c9cff;
-  }
+[data-theme="dark"] {
+  --pv-paper: #111015;
+  --pv-surface: #191821;
+  --pv-surface-sunken: #201f2a;
+  --pv-ink: #f2f1f7;
+  --pv-ink-soft: #c7c4d4;
+  --pv-muted: #918da3;
+  --pv-line: #2a2836;
+  --pv-line-strong: #3a3749;
+
+  /* branding.css swaps the brand to a pale lavender under `[data-theme="dark"]`
+     — `--rtg-button-default-color-bg: hsl(243 100% 92%)` — so the widget's
+     primary button is lavender with dark text, not the crimson it uses in
+     light. The chrome follows it rather than staying rose and clashing. */
+  --pv-accent: hsl(243 100% 88%);
+  --pv-accent-hover: hsl(243 100% 94%);
+  --pv-accent-ink: #1b1830;
+  --pv-accent-wash: hsl(243 100% 88% / 0.12);
+  --pv-accent-edge: hsl(243 100% 88% / 0.28);
+
+  --pv-shadow-sm: 0 1px 2px hsl(0 0% 0% / 0.4);
+  --pv-shadow-md: 0 4px 16px -4px hsl(0 0% 0% / 0.5);
+  --pv-shadow-lg: 0 24px 48px -24px hsl(0 0% 0% / 0.7);
+  --pv-glow: radial-gradient(
+    60% 60% at 50% 0%,
+    hsl(243 100% 88% / 0.1) 0%,
+    transparent 70%
+  );
 }
 
-* {
+/* ==========================================================================
+   Base
+   ========================================================================== */
+
+body.pv-body {
+  margin: 0;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  background-color: var(--pv-paper);
+  background-image: var(--pv-glow);
+  background-repeat: no-repeat;
+  background-size: 100% 40rem;
+  color: var(--pv-ink);
+  font-family: var(--font-pv-sans), ui-sans-serif, system-ui, sans-serif;
+  font-size: 16px;
+  line-height: 1.65;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+.pv-body *,
+.pv-body *::before,
+.pv-body *::after {
   box-sizing: border-box;
 }
 
-body {
-  margin: 0;
-  background: var(--bg);
-  color: var(--fg);
-  font: 15px/1.6 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+.pv-shell {
+  flex: 1;
+  width: 100%;
 }
 
-main {
-  max-width: 44rem;
+.pv-container {
+  width: 100%;
+  max-width: 68rem;
   margin: 0 auto;
-  padding: 3rem 1.5rem;
+  padding-inline: 1.5rem;
 }
 
-h1 {
-  font-size: 1.6rem;
-  letter-spacing: -0.01em;
-  margin: 0 0 0.5rem;
+.pv-container--narrow {
+  max-width: 46rem;
 }
 
-p {
-  color: var(--muted);
-  margin: 0 0 1.5rem;
+/* Headings use the same display face the project's branding puts on the widget. */
+.pv-body h1,
+.pv-body h2,
+.pv-body h3 {
+  font-family: var(--font-pv-display), Georgia, serif;
+  font-weight: 600;
+  line-height: 1.15;
+  letter-spacing: -0.015em;
+  color: var(--pv-ink);
+  margin: 0;
 }
 
-nav {
-  display: flex;
-  gap: 0.75rem;
-  align-items: center;
-  padding: 1rem 1.5rem;
-  border-bottom: 1px solid var(--border);
+.pv-body p {
+  margin: 0;
+  color: var(--pv-ink-soft);
 }
 
-nav a {
-  color: var(--fg);
+/* No blanket `.pv-body a` colour rule here: at 0-1-1 it outranks every single-
+   class component below (`.pv-navlink`, `.pv-btn--quiet`) and flattens them to
+   ink. Preflight already sets bare anchors to `color: inherit`, so prose links
+   are styled explicitly instead. */
+.pv-prose-link,
+.pv-session p a,
+.pv-empty p a {
+  color: var(--pv-accent);
+  font-weight: 550;
   text-decoration: none;
-  font-weight: 500;
 }
 
-nav .spacer {
+.pv-prose-link:hover,
+.pv-session p a:hover,
+.pv-empty p a:hover {
+  text-decoration: underline;
+}
+
+.pv-code {
+  font-family: var(--font-pv-mono), ui-monospace, SFMono-Regular, Menlo,
+    monospace;
+  font-size: 0.85em;
+  background: var(--pv-accent-wash);
+  color: var(--pv-accent);
+  border: 1px solid var(--pv-accent-edge);
+  padding: 0.1em 0.4em;
+  border-radius: 5px;
+  white-space: nowrap;
+}
+
+/* ==========================================================================
+   Header
+   ========================================================================== */
+
+.pv-header {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  border-bottom: 1px solid var(--pv-line);
+  background: color-mix(in srgb, var(--pv-paper) 80%, transparent);
+  backdrop-filter: saturate(180%) blur(12px);
+}
+
+.pv-header__inner {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  height: 4rem;
+}
+
+.pv-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.625rem;
+  text-decoration: none;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--pv-ink);
+  white-space: nowrap;
+}
+
+.pv-brand__mark {
+  display: grid;
+  place-items: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 8px;
+  background: var(--pv-accent);
+  color: var(--pv-accent-ink);
+  font-family: var(--font-pv-display), Georgia, serif;
+  font-size: 0.95rem;
+  font-weight: 700;
+  box-shadow: var(--pv-shadow-sm);
+}
+
+.pv-brand__text {
+  font-size: 0.95rem;
+}
+
+.pv-brand__suffix {
+  color: var(--pv-muted);
+  font-weight: 400;
+}
+
+.pv-header__nav {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  margin-left: 0.75rem;
+}
+
+.pv-header__spacer {
   flex: 1;
 }
 
-.centered {
-  min-height: 70vh;
+.pv-header__actions {
   display: flex;
   align-items: center;
+  gap: 0.5rem;
+}
+
+.pv-navlink {
+  padding: 0.4rem 0.7rem;
+  border-radius: 7px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--pv-muted);
+  text-decoration: none;
+  transition: color 0.15s ease, background-color 0.15s ease;
+}
+
+.pv-navlink:hover {
+  color: var(--pv-ink);
+  background: var(--pv-surface-sunken);
+}
+
+.pv-navlink[aria-current="page"] {
+  color: var(--pv-ink);
+  background: var(--pv-surface-sunken);
+}
+
+@media (max-width: 40rem) {
+  .pv-header__nav {
+    display: none;
+  }
+}
+
+/* Below this the brand, the toggle and two auth buttons stop fitting on one
+   line. The suffix and the secondary action are the parts that can go: "Sign
+   up" reaches the same flow, and the widget's own card offers "Sign in". */
+@media (max-width: 30rem) {
+  .pv-brand__suffix {
+    display: none;
+  }
+
+  .pv-header__actions .pv-btn--quiet {
+    display: none;
+  }
+}
+
+/* ==========================================================================
+   Buttons
+   ========================================================================== */
+
+.pv-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  padding: 0.55rem 1rem;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  font-family: inherit;
+  font-size: 0.875rem;
+  font-weight: 550;
+  line-height: 1.2;
+  text-decoration: none;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background-color 0.15s ease, border-color 0.15s ease,
+    color 0.15s ease, transform 0.1s ease;
+}
+
+.pv-btn:active {
+  transform: translateY(0.5px);
+}
+
+.pv-btn--primary {
+  background: var(--pv-accent);
+  color: var(--pv-accent-ink);
+  box-shadow: var(--pv-shadow-sm);
+}
+
+.pv-btn--primary:hover {
+  background: var(--pv-accent-hover);
+}
+
+.pv-btn--ghost {
+  background: transparent;
+  color: var(--pv-ink-soft);
+  border-color: var(--pv-line-strong);
+}
+
+.pv-btn--ghost:hover {
+  background: var(--pv-surface-sunken);
+  color: var(--pv-ink);
+}
+
+.pv-btn--quiet {
+  background: transparent;
+  color: var(--pv-ink-soft);
+  padding-inline: 0.7rem;
+}
+
+.pv-btn--quiet:hover {
+  background: var(--pv-surface-sunken);
+  color: var(--pv-ink);
+}
+
+.pv-btn--lg {
+  padding: 0.7rem 1.35rem;
+  font-size: 0.95rem;
+  border-radius: 9px;
+}
+
+/* Icon-only toggle in the header. */
+.pv-iconbtn {
+  display: grid;
+  place-items: center;
+  width: 2.125rem;
+  height: 2.125rem;
+  padding: 0;
+  border-radius: 8px;
+  border: 1px solid var(--pv-line);
+  background: var(--pv-surface);
+  color: var(--pv-ink-soft);
+  cursor: pointer;
+  transition: color 0.15s ease, border-color 0.15s ease;
+}
+
+.pv-iconbtn:hover {
+  color: var(--pv-ink);
+  border-color: var(--pv-line-strong);
+}
+
+.pv-iconbtn svg {
+  width: 1rem;
+  height: 1rem;
+}
+
+/* ==========================================================================
+   Hero
+   ========================================================================== */
+
+.pv-hero {
+  padding-block: 5rem 3.5rem;
+  text-align: center;
+}
+
+.pv-hero__inner {
+  max-width: 44rem;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.5rem;
+}
+
+.pv-hero h1 {
+  font-size: clamp(2.25rem, 6vw, 3.5rem);
+}
+
+.pv-hero p {
+  font-size: 1.0625rem;
+  max-width: 36rem;
+}
+
+.pv-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.3rem 0.75rem 0.3rem 0.55rem;
+  border-radius: 999px;
+  border: 1px solid var(--pv-accent-edge);
+  background: var(--pv-accent-wash);
+  color: var(--pv-accent);
+  font-size: 0.78rem;
+  font-weight: 550;
+  letter-spacing: 0.01em;
+}
+
+.pv-eyebrow__dot {
+  width: 0.4rem;
+  height: 0.4rem;
+  border-radius: 999px;
+  background: currentColor;
+}
+
+.pv-hero__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
   justify-content: center;
 }
 
-code {
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 0.9em;
-  background: color-mix(in srgb, var(--fg) 8%, transparent);
-  padding: 0.15em 0.4em;
-  border-radius: 4px;
+/* ==========================================================================
+   Sections
+   ========================================================================== */
+
+.pv-section {
+  padding-block: 3.5rem;
+}
+
+.pv-section__head {
+  max-width: 40rem;
+  margin: 0 auto 2rem;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.pv-section__head h2 {
+  font-size: clamp(1.5rem, 3.5vw, 2rem);
+}
+
+.pv-kicker {
+  font-family: var(--font-pv-mono), ui-monospace, monospace;
+  font-size: 0.72rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--pv-muted);
+}
+
+/* ==========================================================================
+   Cards
+   ========================================================================== */
+
+.pv-card {
+  background: var(--pv-surface);
+  border: 1px solid var(--pv-line);
+  border-radius: 14px;
+  padding: 1.5rem;
+  box-shadow: var(--pv-shadow-sm);
+}
+
+.pv-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+  gap: 1rem;
+}
+
+.pv-feature {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.pv-feature h3 {
+  font-size: 1.0625rem;
+}
+
+.pv-feature p {
+  font-size: 0.9rem;
+}
+
+.pv-feature__icon {
+  display: grid;
+  place-items: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 9px;
+  background: var(--pv-accent-wash);
+  border: 1px solid var(--pv-accent-edge);
+  color: var(--pv-accent);
+  margin-bottom: 0.25rem;
+}
+
+.pv-feature__icon svg {
+  width: 1.125rem;
+  height: 1.125rem;
+}
+
+/* ==========================================================================
+   Request-path diagram
+   ========================================================================== */
+
+.pv-flow {
+  display: flex;
+  align-items: stretch;
+  gap: 0;
+  flex-wrap: wrap;
+  padding: 1.75rem 1.5rem;
+}
+
+.pv-flow__node {
+  flex: 1 1 12rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  padding: 1rem;
+  border-radius: 11px;
+  border: 1px solid var(--pv-line);
+  background: var(--pv-surface-sunken);
+  text-align: left;
+}
+
+.pv-flow__node--origin {
+  border-color: var(--pv-accent-edge);
+  background: var(--pv-accent-wash);
+}
+
+.pv-flow__label {
+  font-family: var(--font-pv-mono), ui-monospace, monospace;
+  font-size: 0.7rem;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--pv-muted);
+}
+
+.pv-flow__title {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--pv-ink);
+  word-break: break-word;
+}
+
+.pv-flow__note {
+  font-size: 0.8rem;
+  color: var(--pv-muted);
+}
+
+.pv-flow__arrow {
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  padding-inline: 0.75rem;
+  color: var(--pv-line-strong);
+}
+
+.pv-flow__arrow svg {
+  width: 1.25rem;
+  height: 1.25rem;
+}
+
+@media (max-width: 48rem) {
+  .pv-flow {
+    flex-direction: column;
+  }
+
+  .pv-flow__arrow {
+    padding: 0.4rem 0;
+    transform: rotate(90deg);
+  }
+}
+
+.pv-flow__caption {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  justify-content: center;
+  margin-top: 1.25rem;
+  padding-top: 1.25rem;
+  border-top: 1px dashed var(--pv-line);
+  font-size: 0.85rem;
+  color: var(--pv-muted);
+  text-align: center;
+}
+
+/* ==========================================================================
+   Code block
+   ========================================================================== */
+
+.pv-codeblock {
+  border: 1px solid var(--pv-line);
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--pv-surface);
+  box-shadow: var(--pv-shadow-md);
+}
+
+.pv-codeblock__bar {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.6rem 0.9rem;
+  border-bottom: 1px solid var(--pv-line);
+  background: var(--pv-surface-sunken);
+}
+
+.pv-codeblock__dots {
+  display: flex;
+  gap: 0.3rem;
+}
+
+.pv-codeblock__dots span {
+  width: 0.6rem;
+  height: 0.6rem;
+  border-radius: 999px;
+  background: var(--pv-line-strong);
+}
+
+.pv-codeblock__name {
+  font-family: var(--font-pv-mono), ui-monospace, monospace;
+  font-size: 0.78rem;
+  color: var(--pv-muted);
+}
+
+.pv-codeblock pre {
+  margin: 0;
+  padding: 1.15rem 1.25rem;
+  overflow-x: auto;
+  font-family: var(--font-pv-mono), ui-monospace, SFMono-Regular, Menlo,
+    monospace;
+  font-size: 0.82rem;
+  line-height: 1.7;
+  color: var(--pv-ink-soft);
+  tab-size: 2;
+}
+
+.pv-codeblock .pv-tok-key {
+  color: var(--pv-accent);
+}
+
+.pv-codeblock .pv-tok-str {
+  color: var(--pv-ink);
+}
+
+.pv-codeblock .pv-tok-dim {
+  color: var(--pv-muted);
+}
+
+/* ==========================================================================
+   Session panel
+   ========================================================================== */
+
+.pv-session {
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+  border-left: 3px solid var(--pv-accent);
+}
+
+.pv-session__body {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.35rem;
+}
+
+.pv-session h3 {
+  font-size: 1rem;
+}
+
+.pv-session p {
+  font-size: 0.9rem;
+}
+
+.pv-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.25rem 0.6rem;
+  border-radius: 999px;
+  border: 1px solid var(--pv-line-strong);
+  background: var(--pv-surface-sunken);
+  font-family: var(--font-pv-mono), ui-monospace, monospace;
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--pv-muted);
+  white-space: nowrap;
+}
+
+.pv-status__dot {
+  width: 0.45rem;
+  height: 0.45rem;
+  border-radius: 999px;
+  background: currentColor;
+}
+
+.pv-status--on {
+  border-color: var(--pv-accent-edge);
+  background: var(--pv-accent-wash);
+  color: var(--pv-accent);
+}
+
+/* ==========================================================================
+   Auth pages
+   ========================================================================== */
+
+.pv-auth {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.5rem;
+  padding-block: 4rem 5rem;
+}
+
+.pv-auth__head {
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  max-width: 30rem;
+}
+
+.pv-auth__head h1 {
+  font-size: 1.75rem;
+}
+
+.pv-auth__head p {
+  font-size: 0.95rem;
+}
+
+/* The widget renders its own card, so this is only a max-width and a place to
+   sit — no border or padding of ours around it. */
+.pv-auth__widget {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+  max-width: 25rem;
+}
+
+.pv-auth__widget > * {
+  width: 100%;
+}
+
+/* ==========================================================================
+   Account page
+   ========================================================================== */
+
+.pv-page {
+  padding-block: 3rem 4rem;
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+}
+
+.pv-page__head {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.4rem;
+}
+
+.pv-page__head h1 {
+  font-size: 2rem;
+}
+
+.pv-page__head p {
+  font-size: 0.95rem;
+}
+
+.pv-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+  text-align: center;
+  padding: 3rem 1.5rem;
+  border: 1px dashed var(--pv-line-strong);
+  border-radius: 14px;
+  background: var(--pv-surface);
+}
+
+.pv-empty h3 {
+  font-size: 1.15rem;
+}
+
+.pv-empty p {
+  font-size: 0.95rem;
+  max-width: 26rem;
+}
+
+/* ==========================================================================
+   Footer
+   ========================================================================== */
+
+.pv-footer {
+  border-top: 1px solid var(--pv-line);
+  margin-top: 2rem;
+  padding-block: 1.75rem;
+}
+
+.pv-footer__inner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem 1.25rem;
+  font-size: 0.83rem;
+  color: var(--pv-muted);
+}
+
+.pv-footer__inner a {
+  color: var(--pv-ink-soft);
+  text-decoration: none;
+}
+
+.pv-footer__inner a:hover {
+  color: var(--pv-accent);
+}
+
+.pv-footer__spacer {
+  flex: 1;
+}
+
+/* ==========================================================================
+   Utilities
+   ========================================================================== */
+
+.pv-visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pv-body *,
+  .pv-body *::before,
+  .pv-body *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
 }
