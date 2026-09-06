@@ -1,6 +1,6 @@
 # PontKit package architecture
 
-Status: decided 2026-09-04, revised 2026-09-06 against the code. §9 steps 1–4 implemented and pushed; steps 5–9 outstanding. Nothing is released — see §12 for the two release chains that gate everything.
+Status: decided 2026-09-04, implemented 2026-09-06. **All code is written, merged and released across fourteen repos.** What remains is operational, not code — see §12: move `deployment_core_elements` off `2.16.5`, recompile stored brands, deploy Chain A together, and run the §9 step 9 deprecations. Published: `@pontive/pontkit-core@1.1.1`, `@pontive/oidc-client@1.0.0`, `@pontive/pontkit-{loader,react,nextjs,vue}@1.0.3`, `saasbase-core@v1.33.0`.
 Scope: renaming `@saasbase-io/core-elements`, `@saasbase-io/elements` and `@revotech-group/revotech-ui-kit` to PontKit, and the npm/repo structure for adding more UI frameworks and more products (billing, subscription management, fine-grained authorization, OIDC client libraries, webhook SDKs).
 
 ## Revision history
@@ -8,6 +8,8 @@ Scope: renaming `@saasbase-io/core-elements`, `@saasbase-io/elements` and `@revo
 | Date | Change |
 |---|---|
 | 2026-09-04 | Initial. Scope, package layout, repo split, `pont-` rename. |
+| 2026-09-06 (pm, 5) | **Everything merged.** Chain A steps 1–2 and Chain B steps 3–4 all completed: saasbase-core released and bumped across seven services, branding-svc released and bumped in identity-svc. What remains in §12 is operational — a data change, a brand recompile, a deploy, and the deprecations. |
+| 2026-09-06 (pm, 4) | **Steps 5–8 done.** oidc-client extracted and published; core published at 1.1.1 after §4.A steps 4–6 landed separately; the bindings monorepo built and published at 1.0.3; all three consumers migrated. Adds §15 on what a mis-marked `!` cost, records in §14 that the auth server's own CDN URL still named the old package, and updates §12 now that Chain B is half done. Three departures from the plan, all in §9 step 7: the stub file was deleted rather than generated, the generator does not emit props interfaces, and the Vite adapter went to the loader. |
 | 2026-09-06 (pm, 3) | **Renamed packages start at `1.0.0`, not `3.0.0`** (§2 *Versioning*). The old number continued the version line of the package being replaced; a new package name has no line to continue. `@pontive/pontkit-core@1.0.0` is what the repo now carries. |
 | 2026-09-06 (pm, 2) | **Headless SDKs revised to repo-per-package** (§3.1, §4). Four packages become three: `@pontive/webhooks` is dropped, because `pontive-spec/11-webhooks.md:113` tells subscribers to verify with the upstream Standard Webhooks library rather than a Pontive scheme, leaving only subscription CRUD, which is `@pontive/server`'s. The remaining three split by runtime and credential — browser / isomorphic / Node-with-a-secret — which is a forced split, not a stylistic one. `pontive-js` renamed to `pontive-oidc-client` and flattened. |
 | 2026-09-06 (pm) | **Implementation record.** §9 steps 1–4 done across five repos. Adds §12 (release chains), §13 (the HTTP header migration, which this document never mentioned and which turned out to be its own cross-service change) and §14 (pre-existing bugs the work surfaced). §6.2 gains a fourth element collision the first audit missed. §6.4 gains the four ways a mechanical rename fails silently, all found the hard way. §6.5's claim that identity-svc holds seeded flow definitions is corrected — it holds none. `auth-api/web/hosted-login` added to §1 as a consumer the plan never listed. |
@@ -302,13 +304,19 @@ When billing / member-management widgets exist, copy WorkOS's pattern: the serve
 4. ✅ **Done** — `identity-svc@pontive-rename`. No catalog or seed data to recreate (§6.5); verified against the local branding-svc with a temporary `replace`, zero failures.
 
    Not yet done for step 3: **recompiling stored brands**. That is a data operation against a live deployment, not a code change, and it belongs to the release in §12.
-5. ✅ **Done (code)** — `oidc-client` extracted to `pontive-oidc-client@main`, flat at the repo root; `pontkit-core` repointed at it. Zero runtime deps, 76/76 tests, dual ESM/CJS, `npm pack` 8 files. `tsc` in core is now clean for the first time on this branch. **Publishing `1.0.0` is outstanding**, and it is currently breaking core's CI: `npm ci` cannot resolve `^1.0.0` against a package that does not exist. Verified locally against a packed tarball instead.
-6. Repo A: rename the package to `@pontive/pontkit-core`; §4.A steps 3–10; publish `1.0.0` (see §2, *Versioning*).
-7. Repo B: run the §6 codemod; convert to workspaces + turbo; `git mv` into `packages/loader`, `packages/react`, `packages/nextjs`; rename; fix §8; move the loader unchanged (§5); add `tools/gen-wrappers` and replace the hand-written React export list with generated output (diff to zero except the `MemberManagement` fix); add `packages/vue`; publish all at `1.0.0`.
-8. `pontive-next-demo`: replace `@saasbase-io/elements` with `@pontive/pontkit-nextjs`; rename `components/saasbase.tsx` to `components/pontkit.tsx`, still a re-export file. Update the cascade comment at the top of `app/globals.css`, which names both the old package and `--sb-sem-font-family`. The demo's own `--pv-*` chrome tokens are unrelated and stay as they are. Read the relevant guide under `node_modules/next/dist/docs/` before touching Next.js code — this is not the Next.js in your training data.
-8b. `pontive-react-demo`: rename the package `saasbased-react-demo` → `pontive-react-demo`; replace `@saasbase-io/elements` with `@pontive/pontkit-react` (Vite, not Next — it takes the React binding directly, plus the loader's Vite adapter if the proxy is used); rename `sb-`/`saasbase` identifiers in `src/`, `vite.config.ts`, `.env.production` and `.github/workflows/deploy-react-demo.yml`.
-8c. `auth-api/web/hosted-login`: replace `@saasbase-io/core-elements@2.16.5` with `@pontive/pontkit-core@1`; rename the tags `src/boot.ts` constructs (`sb-provider`, `sb-signin`, `sb-signup`) and the `sb-`/`saasbase` references in `src/env.ts`; rebuild the committed `dist/`. This is the hosted login page every project's auth domain serves — do not leave it for last on the grounds that it is "inside a service".
-9. `npm deprecate` all `@saasbase-io/*` packages, pointing at the new names. **Not** `@revotech-group/revotech-ui-kit` — it stays published and undeprecated for other Revotech consumers (§2).
+5. ✅ **Done** — `oidc-client` extracted to `pontive-oidc-client`, flat at the repo root; `pontkit-core` repointed at it. Zero runtime deps, 76/76 tests, dual ESM/CJS. Published `@pontive/oidc-client@1.0.0`.
+6. ✅ **Done** — Repo A renamed to `@pontive/pontkit-core` and published. §4.A steps 4–6 (manifest, exported types, tag map) did **not** ship in 1.1.0 and landed separately; the current release is **1.1.1**. See §15 for what that cost.
+7. ✅ **Done** — Repo B: §6 codemod, npm workspaces (no turbo — four packages and one generator did not need it), `packages/{loader,react,nextjs,vue}` plus `tools/gen-wrappers`. Published at **1.0.3**. 63 tests, 0 type errors.
+
+   Three things went differently from the plan. `src/virtual-web-components.ts` was **deleted rather than generated**: `wrap()`'s second parameter was `_defaultClass`, never used and present only to infer `T`, so the stubs existed to satisfy an unused argument — dropping it lets the element types come from core via `import type`, which erases. The §8 `MemberManagement` bug fixed itself in the same edit, since removing the argument removed the wrong `PontAccountSettings` reference. And the generator does **not** emit the props interfaces: `pont-signin` has no attributes in the manifest at all, and the React props are `ReactNode` children and `fallback` — React decisions, not element facts. What it does own is the tag→class mapping, which is the part that drifts (`pont-preview` → `PreviewComponent`, `pont-layout` → `PontKitLayout`).
+
+   The Vite adapter and the proxy primitives live in `@pontive/pontkit-loader/proxy`, not in `pontkit-nextjs`. §3 offered this as an option; it is the right one, because a Vite app depending on a package named for another meta-framework is a wart rather than a design.
+8. ✅ **Done** — `pontive-next-demo` on `@pontive/pontkit-nextjs@1.0.3`; `components/pontkit.tsx`; cascade comment corrected. `tsc` clean, all 6 pages prerendered.
+8b. ✅ **Done** — `pontive-react-demo` on `@pontive/pontkit-react@1.0.3`, with `viteAuthProxy` from `@pontive/pontkit-loader/proxy`. Package renamed. Builds clean.
+8c. ✅ **Done** — `auth-api/web/hosted-login` on `@pontive/pontkit-core@1.1.1`, tags renamed, committed `dist/` rebuilt with zero `sb-*` left.
+
+   It also turned up the piece none of the client work could have fixed: **`auth-api/core/branding/runtimeconfig.go` decides the CDN URL every consumer loads from**, and its jsDelivr fallback still named `@saasbase-io/core-elements`. The loader honours the platform's `assets` over its own default (§5), so the demo rendered blank against a correct client and a stale server. Renamed there and in every other Go reference; full suite passes.
+9. `npm deprecate` all `@saasbase-io/*` packages. There are **three**, not two — `core-elements`, `elements` and `loginflow-websdk`. The last one's successor is `@pontive/oidc-client`, not `pontkit-core`: it was merged into core's `src/auth` (`pontkit-core/CLAUDE.md:84`) and `src/auth` is what step 5 extracted. **Not** `@revotech-group/revotech-ui-kit` — it stays published and undeprecated for other Revotech consumers (§2).
 
 Steps 5 and 7 are independent of the rename and can run in parallel.
 
@@ -369,23 +377,28 @@ Sources (checked 2026-09-04):
 
 ## 12. Release chains
 
-Nothing here can merge or deploy independently. Two chains, each a flag day, and both gated on a release only a human can trigger.
+Nothing here can merge or deploy independently. Two chains, each a flag day.
+
+As of 2026-09-06 **every code change in both chains is merged and released**. What is left in each is a deployment or a data change, and the ordering below still binds: the reason a flag day is survivable is that nothing is deployed yet, not that the steps are independent.
 
 ### Chain A — the request headers (§13)
 
-1. Merge and **release `saasbase-core`** (currently v1.31.1). This is the shared Go library that reads the header.
-2. Bump `github.com/revotech-group/saasbase-core` in the seven services that embed it: `auth-api`, `management-api`, `identity-svc`, `branding-svc`, `platform-core-svc`, `webhook-svc`, `eventbus-svc`.
-3. Deploy those together with `saasbase-dashboard` and `@pontive/pontkit-core`.
+1. ✅ **`saasbase-core` released** at v1.32.0, now v1.33.0. The shared Go library that reads the header.
+2. ✅ **Bumped in all seven services** that embed it — `auth-api`, `management-api`, `identity-svc`, `branding-svc`, `platform-core-svc`, `webhook-svc`, `eventbus-svc` — all on v1.33.0, all building, all suites passing. Both CORS allowlists (`auth-api`, `management-api`) name the new header.
+3. **Deploy those together with `saasbase-dashboard`.** Not done.
 
 **No partial state works, and the failure is not graceful.** CORS is the first gate a browser hits: until `auth-api`'s allowlist names the new header, a preflight carrying it is rejected and the request never reaches the middleware. Deploy the middleware first and every client still sending the old name gets a 400. The system is pre-launch, so a flag day is acceptable; if that stops being true, have the middleware read the new name and fall back to the old for one release, and ordering stops mattering.
 
 ### Chain B — the element vocabulary
 
-1. Merge and **release `branding-svc`** (currently v0.0.26) carrying the `pont-*` catalog and regenerated `widgets.json`.
-2. Bump it in `identity-svc`, whose resolver fixtures cannot pass until then (§6.5).
-3. Publish `@pontive/pontkit-core@1.0.0`.
-4. **Recompile every stored brand.** The compiled stylesheets in the database still carry `--sb-*` property names; nothing re-derives them on read.
-5. Then the consumers: both demos and `auth-api/web/hosted-login` (§9 step 8).
+1. ✅ Publish `@pontive/pontkit-core` (**1.1.1**) and the bindings (**1.0.3**).
+2. ✅ Migrate the consumers: both demos and `auth-api/web/hosted-login` (§9 step 8).
+3. ✅ **`branding-svc` released** with the `pont-*` catalog and regenerated `widgets.json`.
+4. ✅ **Bumped in `identity-svc`** (v0.1.1), whose resolver fixtures could not pass until then (§6.5).
+5. **Move `deployment_core_elements` off `2.16.5`.** This is data, not code, and it is the last thing standing between a correct client and a rendering one.
+6. **Recompile every stored brand.** The compiled stylesheets in the database still carry `--sb-*` property names; nothing re-derives them on read.
+
+Steps 1–4 are done. Steps 1–2 ran ahead of 3–4, which was safe only because nothing renders yet — and that is worth understanding rather than treating as luck. Every consumer now ships `pont-*` markup, but the elements that upgrade it come from whatever release `runtime-config` names. Until step 5, that is still `@saasbase-io/core-elements@2.16.5`, which registers `sb-*`. The tags simply never upgrade: no error, no console warning, an empty widget. §14's entry on this is the same failure seen from the other side.
 
 `saasbase-dashboard` sits in both chains and must go out with both.
 
@@ -418,5 +431,22 @@ None of these were caused by the rename. All were found because absorbing ui-kit
 - **A golden fixture asserting nothing.** `rtg-button-radius-default` has never been declared by core, not even in published 2.16.6 — the real name is `rtg-button-default-radius`. The fixture's own comment warns that "a stale key here would leave the fixture quietly asserting nothing", and a stale token manifest was what hid it.
 - **The two golden corpora had already drifted.** `saasbase-dashboard`'s `compiler-golden.json` and `branding-svc`'s differ by 50 lines on `main` — the dashboard carries an `element-tier-tokens` case the service does not. They are described as enforcing that the two compilers agree; they do not currently do that.
 - **`configure()` advertised a `clientSecret`.** Its validation message read "domain, appId, and clientSecret are required". Nothing has ever checked for one and `ConfigOptions` has no such field — this is a browser client, so a public client in OAuth terms, holding no secret. Five test fixtures still passed it, which is why `tsc` in core failed with exactly 5 errors on every run until the extraction. Telling a browser developer to supply a client secret is bad advice, not a stale string.
+- **The auth server named the old package in its own CDN URL.** `auth-api/core/branding/runtimeconfig.go` builds the `assets` block that `runtime-config` serves, and its jsDelivr fallback read `@saasbase-io/core-elements@{version}`. Since the loader prefers the platform's `assets` over its own default (§5), a fully migrated client still loaded the old bundle — correct code on both sides of a stale contract. Found by running the demo in a browser and reading one console line; no build, test or typecheck on either side could have caught it.
 - **The stale token manifest itself.** `runtime-tokens.json` was snapshotted from a core older than the one shipping, which is precisely the failure its comment describes. Regenerating it against the real build moved it from 2409 to 2568 tokens.
 
+## 15. What conventional commits cost here
+
+Recorded because it cost a burned version number and three false starts, and because the same mistake is available on every repo in §12.
+
+**A `!` on a commit is a release instruction, not a description.** `fix!: stop emitting node_modules paths into the published types` was not a breaking change: it restored type resolution that had never worked for any consumer, so nothing that worked before stopped working. release-please read the `!`, cut `2.0.0`, and it published. The test is *does something that worked for a consumer stop working* — not *does this change something significant*.
+
+**Rolling back the manifest does not undo it.** Setting `.release-please-manifest.json` back to `1.1.0` only changes where release-please starts counting; the `!` is still in range, so it recomputes the same major. Two attempts failed this way before the cause was read properly rather than reasoned about from the config.
+
+**What actually works,** once the commit is merged and rewriting history is not an option:
+
+- `last-release-sha` in `release-please-config.json`, pointed at the release commit that followed the mistake. The offending commit falls out of range entirely. This is what fixed it.
+- A `Release-As: 1.1.1` footer on a later commit. Equivalent, but it must survive to `main` — a squash-merge rewrites the message from the PR, so push it directly or put the footer in the PR description.
+
+**Unpublishing is worse than deprecating.** `2.0.0` was unpublished within the 72-hour window, which works but burns that version number on npm permanently — it can never be republished. `npm dist-tag add …@1.1.1 latest` plus `npm deprecate …@2.0.0` reaches the same place with nothing destroyed, and is the better default unless the published bytes are actually harmful.
+
+**Only `pontkit` and `pontkit-core` auto-release.** The `!` markers on the branches for `identity-svc`, `saasbase-dashboard` and `management-api` are documentation; those repos do not derive versions from commit messages. Worth checking before spending effort on a message.
