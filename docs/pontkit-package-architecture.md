@@ -8,6 +8,7 @@ Scope: renaming `@saasbase-io/core-elements`, `@saasbase-io/elements` and `@revo
 | Date | Change |
 |---|---|
 | 2026-09-04 | Initial. Scope, package layout, repo split, `pont-` rename. |
+| 2026-09-06 (pm, 2) | **Headless SDKs revised to repo-per-package** (§3.1, §4). Four packages become three: `@pontive/webhooks` is dropped, because `pontive-spec/11-webhooks.md:113` tells subscribers to verify with the upstream Standard Webhooks library rather than a Pontive scheme, leaving only subscription CRUD, which is `@pontive/server`'s. The remaining three split by runtime and credential — browser / isomorphic / Node-with-a-secret — which is a forced split, not a stylistic one. `pontive-js` renamed to `pontive-oidc-client` and flattened. |
 | 2026-09-06 (pm) | **Implementation record.** §9 steps 1–4 done across five repos. Adds §12 (release chains), §13 (the HTTP header migration, which this document never mentioned and which turned out to be its own cross-service change) and §14 (pre-existing bugs the work surfaced). §6.2 gains a fourth element collision the first audit missed. §6.4 gains the four ways a mechanical rename fails silently, all found the hard way. §6.5's claim that identity-svc holds seeded flow definitions is corrected — it holds none. `auth-api/web/hosted-login` added to §1 as a consumer the plan never listed. |
 | 2026-09-06 | **Corrected against the code.** Three errors fixed and two repos added. §5 (core version resolution) is **deleted** — it is already built, and the replacement it proposed would regress SRI. §6's claim that `--sb-*` tokens are "purely local" is false: branding-svc constructs token names in Go and stores compiled CSS per brand. `ui-kit` (`@revotech-group/revotech-ui-kit`, 208 elements, 1405 `--sb-*` declarations, compiled straight into core's published stylesheet) and `saasbase-dashboard` (1671 `--sb-*`, 129 files) were absent from the plan and are now in it. Decisions added: **absorb ui-kit into `pontkit-core`** (§2, §4.A) and **collapse `sb-` and `rtg-` into one `pont-` prefix** (§2, §6). Inventory numbers re-measured (§6): 8 DOM events not 1; 402 tokens in core's own `src/styles`, the 1768 figure was core plus ui-kit. Collision analysis added (§6.2). |
 
@@ -44,13 +45,13 @@ Problems that a multi-framework, multi-product future makes worse:
 | Question | Decision | Why |
 |---|---|---|
 | npm scope | One company scope, `@pontive/*`. Create the `pontive` npm org. | A platform with UI kits, OIDC clients, authz and webhook SDKs is what every platform company puts under one scope (Clerk, WorkOS, Auth0, Stripe, Supabase). Cross-layer deps (`pontkit-core` importing `oidc-client`) read like one vendor. `@pontkit/*` was the runner-up; use it only if PontKit becomes a standalone brand. |
-| Package naming | Product prefix + framework suffix: `@pontive/pontkit-react`, `@pontive/pontkit-vue`. Headless SDKs are plain: `@pontive/oidc-client`, `@pontive/authz`, `@pontive/webhooks`. | WorkOS pattern (`@workos-inc/authkit-react`). Clerk uses flat `@clerk/react` because it has one UI product. |
+| Package naming | Product prefix + framework suffix: `@pontive/pontkit-react`, `@pontive/pontkit-vue`. Headless SDKs are plain: `@pontive/oidc-client`, `@pontive/authz`, `@pontive/server` — no product prefix, because none of them is PontKit. | WorkOS pattern (`@workos-inc/authkit-react`). Clerk uses flat `@clerk/react` because it has one UI product. |
 | Per framework: packages or subpaths | **One package per framework.** | Peers differ (`react` vs `@angular/core` vs `vue`); npm 7+ auto-installs peers, so one package would force everyone to install everything or mark all peers optional. Build pipelines differ (Vite lib vs ng-packagr vs `.svelte` source). Install size and `sideEffects` differ. Neither Clerk nor WorkOS uses subpaths for frameworks. |
 | Per domain (auth, billing, …): packages or subpaths | **Subpaths inside each framework package**: `@pontive/pontkit-react/auth`, `@pontive/pontkit-react/billing`. | Domains share peers and build. Domain × framework packages would give 12 near-identical packages for 3 domains × 4 frameworks. |
 | Rule of thumb | Split packages along the axis where dependencies differ (framework). Use subpaths along the axis where they don't (domain). | |
 | **ui-kit** | **Absorb into `pontkit-core`.** Its source is copied into the core repo and PontKit stops depending on the package. | Decided 2026-09-06. It is already a private dependency — core is its only live consumer — and its stylesheet is already inlined into core's published `dist/styles.css`, so the two ship as one artifact regardless. Keeping it separate means renaming its tokens in lockstep with core forever, across two release cadences, for a package no Pontive code will install. The copy diverges from the original by design; see the row below for what happens to the original. |
 | **Prefix** | **One prefix, `pont-`, for everything.** `sb-` (58 widget elements) and `rtg-` (208 primitives) collapse into a single `pont-*` element vocabulary, a single Tailwind prefix, and a single `--pont-*` token namespace. | Decided 2026-09-06. branding-svc already treats `rtg-` and `sb-` as **one tier** (`componentTokenKey = ^(rtg\|sb)-[a-z0-9-]+$`, `pkg/branding/components.go:34`); the reference/semantic/component tiers are marked by the segment *after* the prefix, so the merge removes two names for one thing rather than erasing a distinction. The curated-vs-internal boundary is carried by `catalog.json`, not by the prefix (§6.3). Collisions are 3 tags and 1 token (§6.2). |
-| Repos | Keep core separate (now including the primitives). Turn the wrapper repo into a small workspace monorepo of framework bindings. New monorepo for headless SDKs. | Core needs its own release cadence for per-customer CDN versioning. Bindings share a loader and codegen, so they belong together (Clerk's `@clerk/shared` is why one team supports 15 frameworks; WorkOS's repo-per-framework reimplements session handling each time). |
+| Repos | Keep core separate (now including the primitives). Turn the wrapper repo into a small workspace monorepo of framework bindings. **One repo per headless SDK** (revised 2026-09-06 — see §3.1; the monorepo was justified by analogy to Clerk and the analogy does not hold here). | Core needs its own release cadence for per-customer CDN versioning. Bindings share a loader and codegen, so they belong together (Clerk's `@clerk/shared` is why one team supports 15 frameworks; WorkOS's repo-per-framework reimplements session handling each time). |
 | Naming inside the code | **`pont-` everywhere. No `sb`, `Sb`, `SB`, `saasbase`, `SaaSBase`, `rtg`, `Rtg` or `RTG` anywhere** — tags, classes, events, CSS tokens, Tailwind prefix, window globals, catalog, filenames. See §6. | Decided 2026-09-04, extended to `rtg` on 2026-09-06. Do it once, at the rename, rather than carrying two dead brands into a new package namespace. |
 | Core delivery | CDN, deterministic, platform-decided. **Already implemented — do not rebuild.** See §5. | |
 | Headless auth | Extract core's `src/auth` into `@pontive/oidc-client`. Core depends on it like any consumer. | Mobile, Node and custom-UI customers need it without Lit. **Not** for size: measured after the extraction, `index.mjs` goes 1,001,647 → 1,014,885 bytes, about 1% *larger*, because core still inlines the package for CDN delivery. The reason is reach. |
@@ -64,7 +65,7 @@ Bottom up.
 
 | Layer | Packages | Delivery | Peers |
 |---|---|---|---|
-| Headless SDKs | `@pontive/oidc-client` (browser OIDC/OAuth for Pontive issuers), `@pontive/authz` (fine-grained authorization client), `@pontive/webhooks` (webhooks-as-a-service), `@pontive/server` (server-side API client) | npm, bundled by the app | none |
+| Headless SDKs | `@pontive/oidc-client` (browser), `@pontive/authz` (isomorphic), `@pontive/server` (Node). One repo each — see §3.1. | npm, bundled by the app | none |
 | Elements | `@pontive/pontkit-core` — provider, contexts, **primitives (ex-ui-kit)**, design tokens, all `pont-*` elements for now. Later: `pontkit-auth`, `pontkit-billing` as separately loaded element bundles. | CDN, per-customer version | none (`lit` is a real dependency) |
 | Bindings | `@pontive/pontkit-loader`, `@pontive/pontkit-react`, `-vue`, `-angular`, `-svelte`, each with domain subpaths | npm, generated from manifests | the framework |
 | Meta-framework | `@pontive/pontkit-nextjs` (React binding + auth proxy under `/server`), later `-nuxt`, `-sveltekit` | npm | framework + meta-framework |
@@ -76,6 +77,26 @@ Notes:
 - Every binding package has `@pontive/pontkit-core` as a **devDependency** only (types + manifest for codegen). Nothing bundles core.
 - Core is `sideEffects: true` (`@customElement` registers on import). Bindings are `sideEffects: false`.
 - The 208 primitives are **not** added to `catalog.json`. They are internal composition elements; the catalog stays the 30 curated widget elements branding-svc places.
+
+### 3.1 The headless SDKs: three packages, three repos
+
+Revised 2026-09-06, replacing "a `pontive-js` workspace monorepo of four packages". The first draft reasoned by analogy to Clerk's monorepo; measured against what these packages actually are, the analogy does not hold — Clerk's works because `@clerk/shared` carries real weight across 27 tightly-coupled UI packages, and WorkOS, whose shape is closer to ours, uses repo-per-package.
+
+The splits below are **forced by runtime and credential**, which is the same axis §2 already uses for the framework bindings. They are not stylistic.
+
+| Package | Repo | Runtime | Credential |
+|---|---|---|---|
+| `@pontive/oidc-client` | `pontive-oidc-client` | **Browser only** | session cookie; a *public* client, no secret |
+| `@pontive/authz` | `pontive-authz` | **Isomorphic** | session **or** API key |
+| `@pontive/server` | `pontive-server` | **Node only** | `sk_proj_…` secret |
+
+- **oidc-client cannot absorb the others.** It is irreducibly browser-bound — 15 `BroadcastChannel`, 13 `localStorage`, 9 `navigator.*` for WebAuthn — and it is inlined into a ~1 MB CDN bundle, so it is the one package here that is size-sensitive.
+- **authz cannot merge into server.** `pontive-spec/08-authorization.md:519` has `POST /v1/authz/check` accepting "any project-scoped credential", and `:324` has clients calling `/check` when the access token's `permissions_version` drifts. A browser hiding a button and a server enforcing the rule call the same endpoint. Merging would put a secret-bearing Node package into browser bundles for anyone who wants a permission check — the one merge here that is actively unsafe.
+- **authz cannot merge into oidc-client** either, for the mirror reason: it would become unusable server-side, which is half its job.
+
+**`@pontive/webhooks` is dropped.** `pontive-spec/11-webhooks.md:113`: subscribers verify "with any official **Standard Webhooks** library — in their language of choice, maintained upstream — rather than implementing a Pontive-specific scheme." The signature is plain `HMAC-SHA256` over `{id}.{timestamp}.{body}` with a `whsec_` secret, deliberately standard. Shipping a Pontive verifier would contradict the spec and duplicate a maintained library. What remains is subscription CRUD, which is ordinary API surface and belongs in `@pontive/server`.
+
+`oidc-client` was taken in the org (dead since 2022), hence the `pontive-` prefixes, consistent with `pontive-spec` / `pontive-website` / `pontive-next-demo`.
 
 ## 4. Repos
 
@@ -123,9 +144,15 @@ The loader moves **as-is** (§5). Only its identifiers are renamed.
 
 Bindings version in lockstep with each other and independently of core, with a declared compatible core major.
 
-### Repo C: `pontive-js` (new) → headless SDKs
+### Repo C → repos C1–C3: one per headless SDK
 
-Workspace monorepo: `packages/oidc-client`, `authz`, `webhooks`, `server`. Independent versions (changesets or release-please manifest without lockstep). Start by moving core's `src/auth` here.
+Superseded 2026-09-06. Not a monorepo — see §3.1 for why the analogy to Clerk did not survive contact.
+
+- **`pontive-oidc-client`** → `@pontive/oidc-client`. Done: core's `src/auth` moved here, flat at the repo root, zero runtime dependencies.
+- **`pontive-authz`** → `@pontive/authz`. Not built.
+- **`pontive-server`** → `@pontive/server`. Not built. Absorbs webhook subscription CRUD.
+
+Each repo *is* its package: no `packages/` directory, no workspace manifest. That was the point of splitting them.
 
 ## 5. Core version resolution — already built
 
@@ -259,7 +286,7 @@ When billing / member-management widgets exist, copy WorkOS's pattern: the serve
 
 0a. Create the `pontive` npm org (confirm name availability at creation; `@pontkit` is confirmed free, `@pontive` was inconclusive against an unauthenticated registry probe).
 0b. GitHub renames in `revotech-group` — rename in place rather than creating new repos, so history, issues, release-please state and clone URLs survive: `saasbase-core-elements` → `pontkit-core`, `saasbase-elements` → `pontkit`.
-0c. Create the empty `pontive-js` repo.
+0c. Create `pontive-oidc-client` (done, as `pontive-js`, since renamed). `pontive-authz` and `pontive-server` are created when someone builds them — §3.1.
 0d. Archive `saasbase-ui-elements`, `saasbase-branding-and-widgets`, `saasbase-widget-customiser`. Rename `saasbase-react-demo` → `pontive-react-demo` and migrate it (step 8b).
 0e. `ui-kit` goes read-only after the absorption, and stays published for other Revotech apps.
 
@@ -273,7 +300,7 @@ When billing / member-management widgets exist, copy WorkOS's pattern: the serve
 4. ✅ **Done** — `identity-svc@pontive-rename`. No catalog or seed data to recreate (§6.5); verified against the local branding-svc with a temporary `replace`, zero failures.
 
    Not yet done for step 3: **recompiling stored brands**. That is a data operation against a live deployment, not a code change, and it belongs to the release in §12.
-5. ✅ **Done (code)** — Repo C: `oidc-client` extracted to `pontive-js@main`; `pontkit-core` repointed at it. Zero runtime deps, 76/76 tests, dual ESM/CJS, `npm pack` 7 files. `tsc` in core is now clean for the first time on this branch. **Publishing `1.0.0` is outstanding** — core declares `^1.0.0` and cannot `npm install` until it exists.
+5. ✅ **Done (code)** — `oidc-client` extracted to `pontive-oidc-client@main`, flat at the repo root; `pontkit-core` repointed at it. Zero runtime deps, 76/76 tests, dual ESM/CJS, `npm pack` 8 files. `tsc` in core is now clean for the first time on this branch. **Publishing `1.0.0` is outstanding**, and it is currently breaking core's CI: `npm ci` cannot resolve `^1.0.0` against a package that does not exist. Verified locally against a packed tarball instead.
 6. Repo A: rename the package to `@pontive/pontkit-core`; §4.A steps 3–10; publish `3.0.0`.
 7. Repo B: run the §6 codemod; convert to workspaces + turbo; `git mv` into `packages/loader`, `packages/react`, `packages/nextjs`; rename; fix §8; move the loader unchanged (§5); add `tools/gen-wrappers` and replace the hand-written React export list with generated output (diff to zero except the `MemberManagement` fix); add `packages/vue`; publish all at `3.0.0`.
 8. `pontive-next-demo`: replace `@saasbase-io/elements` with `@pontive/pontkit-nextjs`; rename `components/saasbase.tsx` to `components/pontkit.tsx`, still a re-export file. Update the cascade comment at the top of `app/globals.css`, which names both the old package and `--sb-sem-font-family`. The demo's own `--pv-*` chrome tokens are unrelated and stay as they are. Read the relevant guide under `node_modules/next/dist/docs/` before touching Next.js code — this is not the Next.js in your training data.
