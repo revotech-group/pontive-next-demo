@@ -1,6 +1,6 @@
 # PontKit package architecture
 
-Status: decided 2026-09-04, revised 2026-09-06 against the code. Repo renames done; implementation in progress from §9 step 1.
+Status: decided 2026-09-04, revised 2026-09-06 against the code. §9 steps 1–4 implemented and pushed; steps 5–9 outstanding. Nothing is released — see §12 for the two release chains that gate everything.
 Scope: renaming `@saasbase-io/core-elements`, `@saasbase-io/elements` and `@revotech-group/revotech-ui-kit` to PontKit, and the npm/repo structure for adding more UI frameworks and more products (billing, subscription management, fine-grained authorization, OIDC client libraries, webhook SDKs).
 
 ## Revision history
@@ -8,6 +8,7 @@ Scope: renaming `@saasbase-io/core-elements`, `@saasbase-io/elements` and `@revo
 | Date | Change |
 |---|---|
 | 2026-09-04 | Initial. Scope, package layout, repo split, `pont-` rename. |
+| 2026-09-06 (pm) | **Implementation record.** §9 steps 1–4 done across five repos. Adds §12 (release chains), §13 (the HTTP header migration, which this document never mentioned and which turned out to be its own cross-service change) and §14 (pre-existing bugs the work surfaced). §6.2 gains a fourth element collision the first audit missed. §6.4 gains the four ways a mechanical rename fails silently, all found the hard way. §6.5's claim that identity-svc holds seeded flow definitions is corrected — it holds none. `auth-api/web/hosted-login` added to §1 as a consumer the plan never listed. |
 | 2026-09-06 | **Corrected against the code.** Three errors fixed and two repos added. §5 (core version resolution) is **deleted** — it is already built, and the replacement it proposed would regress SRI. §6's claim that `--sb-*` tokens are "purely local" is false: branding-svc constructs token names in Go and stores compiled CSS per brand. `ui-kit` (`@revotech-group/revotech-ui-kit`, 208 elements, 1405 `--sb-*` declarations, compiled straight into core's published stylesheet) and `saasbase-dashboard` (1671 `--sb-*`, 129 files) were absent from the plan and are now in it. Decisions added: **absorb ui-kit into `pontkit-core`** (§2, §4.A) and **collapse `sb-` and `rtg-` into one `pont-` prefix** (§2, §6). Inventory numbers re-measured (§6): 8 DOM events not 1; 402 tokens in core's own `src/styles`, the 1768 figure was core plus ui-kit. Collision analysis added (§6.2). |
 
 ## 1. Current state
@@ -22,8 +23,11 @@ Scope: renaming `@saasbase-io/core-elements`, `@saasbase-io/elements` and `@revo
 | `identity-svc` | Go service | Serves the catalog to the flow engine; `GetCoreElements` reports the release a project loads. |
 | `pontive-next-demo` | consumer | Depends on `@saasbase-io/elements` from the registry only. Core is never installed. |
 | `pontive-react-demo` | consumer | Vite + React Router demo (ex-`saasbase-react-demo`). Depends on `@saasbase-io/elements`; package still named `saasbased-react-demo`. Migrates alongside the Next demo. |
+| `auth-api/web/hosted-login` | consumer, inside a service | **Not in the first draft's repo list.** The hosted sign-in and sign-up pages served on every project's auth domain. Depends on `@saasbase-io/core-elements@2.16.5` directly and constructs `sb-provider` / `sb-signin` / `sb-signup` in `src/boot.ts`. Its `dist/` is committed. Arguably a more important consumer than either demo, and it migrates with them (§9 step 8c). |
 
-Dead repos carrying the old names, archived rather than migrated: `saasbase-ui-elements` (an older package also publishing `@saasbase-io/elements`, last touched 2025-12), `saasbase-branding-and-widgets` (2026-05), `saasbase-widget-customiser` (2026-03).
+Dead repos carrying the old names, archived rather than migrated: `saasbase-ui-elements` (an older package also publishing `@saasbase-io/elements`, last touched 2025-12), `saasbase-branding-and-widgets` (2026-05), `saasbase-widget-customiser` (2026-03). `loginflow-engine` was deleted outright on 2026-09-06.
+
+Also touched, by the header migration rather than the rename (§13): `saasbase-core` (the shared Go library every service embeds), `auth-api`, `management-api`, `platform-management-api`, `go-core`.
 
 Problems that a multi-framework, multi-product future makes worse:
 
@@ -164,15 +168,20 @@ Keep a Tailwind prefix, just make it one and rename it. Elements render into lig
 
 Merging the two vocabularies is nearly clean. Measured by stripping both prefixes and intersecting:
 
-**Element tags — 3 collisions.**
+**Element tags — 4 collisions.** As resolved:
 
 | Name | `sb-` side | `rtg-` side | Resolution |
 |---|---|---|---|
-| `alert` | in `catalog.json` (curated) | 3 uses in core | Catalog name wins `pont-alert`; rename the primitive (proposed `pont-callout`). |
-| `form` | in `catalog.json` (curated) | 0 uses in core | Catalog name wins `pont-form`; rename or drop the primitive. |
-| `spinner` | internal, not in the catalog | 12 uses in core | Primitive wins `pont-spinner`; rename core's internal one. |
+| `alert` | in `catalog.json` (curated), 7 uses | 69 uses | Catalog keeps `pont-alert`. The primitive family becomes `pont-callout*`, **and its 61 component tokens move with it** — the dashboard stores those keys literally and compiles them into property names, so element and tokens must not diverge. |
+| `form` | in `catalog.json`, 4 uses | 14 uses | Catalog keeps `pont-form`. The primitive root becomes `pont-form-root`, leaving its family (`form-field`, `form-item`, `form-label`, …) untouched. |
+| `spinner` | 0 uses, no importers, not in the catalog | 47 uses | The widget copy was dead and duplicated the primitive — deleted rather than given an invented name. The primitive keeps `pont-spinner`. |
+| `pagination` | 2 uses, not in the catalog | a 7-element family | **Missed by the first audit**, which grepped `@customElement`; this one registers via `customElements.define` directly and only surfaced as a duplicate `HTMLElementTagNameMap` entry at typecheck. The two are genuinely different — a stateful control vs a headless compositional family — so the family keeps `pont-pagination*` and the control becomes `pont-paginator`. |
 
-**CSS tokens — 1 collision.** `--sb-field-label-space-gap` / `--rtg-field-label-space-gap`. Resolve by hand at the codemod.
+An audit must cover **both** registration forms. `@customElement` alone misses 7 of 270 tags here.
+
+**CSS tokens — 1 collision, and it was the dangerous kind.** There are **1,839** places where one layer feeds the other (`--rtg-x: var(--sb-y)`). In exactly one — `--rtg-field-label-space-gap: var(--sb-field-label-space-gap)` — the names match, so the collapse produces `--pont-x: var(--pont-x)`: a cyclic var, which CSS treats as guaranteed-invalid and drops **silently**, collapsing the auth field's label gap with nothing in any build log. The element tier's knob is now `--pont-auth-field-label-space-gap`.
+
+Check for this mechanically before renaming: match `--(a|b)-X: var(--(a|b)-Y)` across the tree and flag every pair where X == Y after stripping prefixes.
 
 **Tailwind classes — none possible.** Both configs generate from the same Tailwind core; the merge is of `theme.extend`, and a conflicting key there is a build-time error, not a silent collision.
 
@@ -180,18 +189,45 @@ Merging the two vocabularies is nearly clean. Measured by stripping both prefixe
 
 Today `branding-svc/pkg/markup/parse.go:235` rejects any tag not starting with `sb-` as a hard error, and *then* checks the catalog. After the collapse the prefix gate accepts all 266 tags and the catalog lookup becomes the only discriminator — a primitive in brand markup falls through to `CodeUnknownElement`, a **warning** rather than an error, and the node is still removed. Same outcome, weaker diagnostic.
 
-This is acceptable because `catalog.json` was always the real boundary (branding-svc curates 30 of 58 `sb-` tags today, so the prefix was never sufficient). If the harder error is wanted back, add an `internal: true` flag to the manifest and have the catalog generator emit the primitives as explicitly-forbidden entries.
+This is acceptable because `catalog.json` was always the real boundary (branding-svc curates 30 of core's 262 elements, so the prefix was never sufficient). If the harder error is wanted back, add an `internal: true` flag to the manifest and have the catalog generator emit the primitives as explicitly-forbidden entries.
+
+**As implemented**, the prefix is now the `elementPrefix` constant in `pkg/markup/parse.go` rather than three separate literals, with this reasoning recorded beside it.
 
 ### 6.4 Mechanics
 
 - Do the rename as **one commit per repo, before the restructure**, so the package-split diff stays reviewable. In Repo A, absorb ui-kit first (§4.A step 1) so there is one tree to codemod.
-- Codemod, not hand edits. Word-boundary `Sb`/`Rtg` followed by a capital → `Pont`; `"sb-`/`"rtg-` → `"pont-`; `--sb-`/`--rtg-` → `--pont-`; Tailwind `sb-`/`rtg-` class prefixes → `pont-`; `saasbase`/`SaaSBase` → `pontive`/`PontKit` case-preserving. Apply the §6.2 collision resolutions first, by hand, so the codemod cannot merge two distinct things.
-- Tailwind class renames fail silently, so follow the codemod with a full build and a visual pass over every story in Storybook — all 50 absorbed ui-kit stories plus core's — not just a test run.
-- Add a CI guard that greps `src`, `catalog.json`, `README` and `docs` for `\bSb[A-Z]`, `\bRtg[A-Z]`, `"sb-`, `"rtg-`, `--sb-`, `--rtg-`, `sb:` and `saasbase` (case-insensitive) and fails the build on any hit. Exclude changelogs and this architecture document, which quote the old names deliberately. **The guard is only honest once ui-kit is absorbed** — while its stylesheet is `@import`ed from `node_modules`, 1405 `--sb-*` declarations reach the published CSS without appearing in any grepped source.
+- Codemod, not hand edits. Apply the §6.2 collision resolutions first, by hand, so the codemod cannot merge two distinct things into one name.
+- **There is no green intermediate between "absorbed" and "renamed".** A Tailwind config takes a single prefix, so merging the two configs forces the prefix collapse; the tree does not build until the rename lands. Plan two commits on one branch, not two landable steps.
+- Tailwind class renames fail silently, so follow the codemod with a full build **and** a rendered pass over the stories — not just a test run.
+- Add a CI guard (`scripts/check-no-legacy-names.mjs`) and wire it into `prepublishOnly`. Exclude changelogs and this document, which quote the old names deliberately. **The guard is only honest once ui-kit is absorbed** — while its stylesheet is `@import`ed from `node_modules`, 1405 `--sb-*` declarations reach the published CSS without appearing in any grepped source.
+
+#### The four ways this fails silently
+
+Every one of these was hit. None produced an error; each was found by a diff or an audit, and each would have shipped.
+
+**1. Word boundaries do not survive escaping.** Widget markup is stored JSON- and SQL-escaped as `\u003csb-block\u003e`. The `c` of `\u003c` is a word character, so a `\b`-anchored rule matches the *closing* tag (preceded by `/`) but not the opening one — rewriting **731 pairs** into `<sb-block></pont-block>`. Nothing fails until a widget renders. Add an explicit rule for the escape forms, ahead of the `\b` rules.
+
+**2. Tailwind's negative modifier puts a second `-` after the prefix.** `rtg--translate-x-1/2` is not matched by `\brtg-(?=[a-z0-9])`. Such a class survives the rename, stops being generated, and nothing reports it — the radio indicator simply stops being centred. The lookahead must allow `-`: `(?=[a-z0-9-])`.
+
+**3. The same rule is copied more than you think.** The component-tier regex `^(rtg|sb)-[a-z0-9-]+$` exists in **three** places: `branding-svc/pkg/branding/components.go`, the dashboard's `tokens/emitters/component.ts`, and the dashboard's `scripts/branding/audit-style-groups.ts`. The codemod skips all three, because the prefix there is not followed by a name. Two were obvious; the third emitted **892 false failures** once found, and a stale copy *misclassifies silently* rather than erroring. Grep for the rule itself, not just for the prefix.
+
+**4. Case-preserving brand rules guess wrong across repos.** `SaaSBase` means the UI kit in the element repos (→ `PontKit`) and the platform in every service (→ `Pontive`). One rule cannot serve both. Guessing `PontKit` in branding-svc produced `X-PontKit-Project-ID` in a documented curl command. Decide per repo which noun the brand stood for.
+
+And one that is not silent but wastes a cycle: a `SKIP_DIRS` list containing `build` or `dist` will skip **source** directories with those names. The dashboard has `src/**/preview/build/`; skipping it left 28 imports pointing at already-moved files and hid 2,355 further token renames.
+
+#### Verification that actually catches things
+
+- Diff the **generated stylesheet** against the last published one, as name sets with the deliberate renames normalised away. Anything left over is either a bug or something you deleted on purpose, and you should be able to say which.
+- Assert **no self-referential custom property** in the built CSS: `--x: var(--x)`.
+- Assert **every panel key resolves** against the runtime's compiled stylesheet. `audit:tokens` reporting "443 controls, 443 driving a real token, 0 naming nothing" is the single most valuable check in this work, because it is cross-repo and mechanical.
+- Build Storybook and **render** a few stories. The build alone caught 20 `.mdx` files the path rename missed; rendering confirmed the negative-modifier fix.
 
 ### 6.5 Coordination
 
-- **`catalog.json` tags are cross-service.** branding-svc curates against the catalog and identity-svc's flow engine keys off tags and attribute names. Sequence: publish `@pontive/pontkit-core@3` with `pont-*` tags and the stamped catalog, update both services to the new catalog, then recreate seeded and default flow definitions with the new tags. Greenfield, so no dual-tag aliasing and no data migration for stored flows. Volume: `branding-svc/pkg/builtinwidgets/widgets.json` (2280 `sb-` occurrences) and `db/migrations/00100_initial.sql` (452) are regenerated, not hand-edited.
+- **`catalog.json` tags are cross-service.** branding-svc curates against the catalog and identity-svc's flow engine keys off tags and attribute names. Greenfield, so no dual-tag aliasing and no data migration for stored flows.
+- **Corrected: identity-svc holds no seeded flow markup.** The first draft said to "recreate seeded and default flow definitions with the new tags" in both services. All the widget markup lives in `branding-svc/db/migrations/00100_initial.sql`; identity-svc's own migrations contain zero `sb-` occurrences. Its rename is comments, resolver fixtures and prose.
+- **Two branding-svc artifacts are generated, not hand-edited.** `pkg/builtinwidgets/widgets.json` (2280 `sb-` occurrences) and the five locale files come from the migration via `scripts/genbuiltinwidgets -write` and `scripts/genbuiltintranslations`. Edit the migration, then regenerate. Translation reconciliation reporting "0 added, 0 dropped, 0 reset" is the check that only tags moved and no copy did.
+- **identity-svc consumes branding-svc as a Go module.** `pkg/builtinwidgets` is the artifact its resolver falls back to, so identity-svc's fixtures cannot pass until branding-svc is released. Prove the rename with a temporary `replace github.com/revotech-group/branding-svc => ../branding-svc`; do not commit it.
 - **`--sb-*` tokens are NOT purely local.** The first draft claimed "no token name is constructed from backend data." That is false. branding-svc builds token names in Go and stores the compiled stylesheet per brand:
   - `pkg/branding/compile.go:274` — `fmt.Sprintf("--sb-ref-color-%s-%s", palette, shade)`
   - `pkg/branding/compile.go:144` — `"--sb-ref-radius"`; `:43` — `var(--sb-ref-color-transparent)`; `:48-49` — the white/black map
@@ -200,7 +236,8 @@ This is acceptable because `catalog.json` was always the real boundary (branding
   - `pkg/branding/components.go:34` — `componentTokenKey = ^(rtg|sb)-[a-z0-9-]+$`
 
   So the token rename is a Go change plus a **recompile of every stored brand**, not a local codemod. The `data-sb-widget` attribute is a third cross-boundary contract (proto docs, `pkg/markup/resolve.go`, `pkg/compose/compose.go`) and renames with it.
-- **The dashboard mirrors both surfaces.** `saasbase-dashboard` holds 1671 `--sb-*` and 655 `--rtg-*` names across 129 files, including `src/features/branding/tokens/__fixtures__/runtime-tokens.json`, a snapshot of core's declared tokens whose own comment warns that a name disappearing from it is a panel control that silently stops working. `features/branding/tokens/emitters/component.ts` must stay byte-identical to branding-svc's `components.go` — the golden corpus enforces it, so the two rename in the same change.
+- **The dashboard mirrors both surfaces.** `saasbase-dashboard` holds 2224 `--sb-*` and 712 `--rtg-*` names, including `src/features/branding/tokens/__fixtures__/runtime-tokens.json`, a snapshot of core's declared tokens whose own comment warns that a name disappearing from it is a panel control that silently stops working. `features/branding/tokens/emitters/component.ts` must stay byte-identical to branding-svc's `components.go` — so the two rename in the same change, along with the third copy in `audit-style-groups.ts` (§6.4).
+- **Regenerate the token manifest from the local core build**, not the CDN: `refresh-token-manifest.ts` fetches `@pontive/pontkit-core@latest`, which does not exist until publish. Refreshing it is also what makes stale fixture keys honest — see §14.
 - **`pont-` is a valid custom element prefix.** Custom element names need a hyphen, which `pont-provider` satisfies, and the prefix does not collide with any known library.
 - **Fix the spec's stray name.** `pontive-spec/21-element-versioning-and-compatibility.md` writes `@pontive-io/core-elements`, which is neither the old name nor the decided one.
 
@@ -230,25 +267,48 @@ When billing / member-management widgets exist, copy WorkOS's pattern: the serve
 
 **Then:**
 
-1. Repo A: absorb ui-kit (§4.A step 1), merged Tailwind config, build green, Storybook visually unchanged. Own commit.
-2. Repo A: resolve the §6.2 collisions by hand, then run the §6 rename codemod. Own commit. Build + full Storybook pass.
-3. `branding-svc` + `saasbase-dashboard`: rename tags, tokens and `data-sb-widget` in the same wave; regenerate `widgets.json`, the seed migration and the catalog; recompile stored brands. `components.go` and `component.ts` change together.
-4. `identity-svc`: new catalog; recreate seeded and default flow definitions with `pont-*` tags.
+1. ✅ **Done** — Repo A: absorb ui-kit (§4.A step 1), merged Tailwind config. `pontkit-core@absorb-ui-kit`, PR #313 (draft).
+2. ✅ **Done** — Repo A: §6.2 collisions by hand, then the codemod. Same branch. Build, 80/80 tests, `check:catalog` clean, Storybook 444 entries, rendered pass.
+3. ✅ **Done** — `branding-svc@pontive-rename` (full suite incl. postgres + golden corpus) and `saasbase-dashboard@pontive-headers` (`audit:tokens` 443/443, `audit:style-groups`, `audit:widget-defaults`, `tsc` all clean). `components.go`, `component.ts` and `audit-style-groups.ts` changed together.
+4. ✅ **Done** — `identity-svc@pontive-rename`. No catalog or seed data to recreate (§6.5); verified against the local branding-svc with a temporary `replace`, zero failures.
+
+   Not yet done for step 3: **recompiling stored brands**. That is a data operation against a live deployment, not a code change, and it belongs to the release in §12.
 5. Repo C: extract `oidc-client` from core's `src/auth`; publish `1.0.0`.
 6. Repo A: rename the package to `@pontive/pontkit-core`; §4.A steps 3–10; publish `3.0.0`.
 7. Repo B: run the §6 codemod; convert to workspaces + turbo; `git mv` into `packages/loader`, `packages/react`, `packages/nextjs`; rename; fix §8; move the loader unchanged (§5); add `tools/gen-wrappers` and replace the hand-written React export list with generated output (diff to zero except the `MemberManagement` fix); add `packages/vue`; publish all at `3.0.0`.
 8. `pontive-next-demo`: replace `@saasbase-io/elements` with `@pontive/pontkit-nextjs`; rename `components/saasbase.tsx` to `components/pontkit.tsx`, still a re-export file. Update the cascade comment at the top of `app/globals.css`, which names both the old package and `--sb-sem-font-family`. The demo's own `--pv-*` chrome tokens are unrelated and stay as they are. Read the relevant guide under `node_modules/next/dist/docs/` before touching Next.js code — this is not the Next.js in your training data.
 8b. `pontive-react-demo`: rename the package `saasbased-react-demo` → `pontive-react-demo`; replace `@saasbase-io/elements` with `@pontive/pontkit-react` (Vite, not Next — it takes the React binding directly, plus the loader's Vite adapter if the proxy is used); rename `sb-`/`saasbase` identifiers in `src/`, `vite.config.ts`, `.env.production` and `.github/workflows/deploy-react-demo.yml`.
+8c. `auth-api/web/hosted-login`: replace `@saasbase-io/core-elements@2.16.5` with `@pontive/pontkit-core@3`; rename the tags `src/boot.ts` constructs (`sb-provider`, `sb-signin`, `sb-signup`) and the `sb-`/`saasbase` references in `src/env.ts`; rebuild the committed `dist/`. This is the hosted login page every project's auth domain serves — do not leave it for last on the grounds that it is "inside a service".
 9. `npm deprecate` all `@saasbase-io/*` packages, pointing at the new names. **Not** `@revotech-group/revotech-ui-kit` — it stays published and undeprecated for other Revotech consumers (§2).
 
-Steps 3 and 4 are the schedule risk: they cross into Go services and stored data, and step 6 cannot publish before the catalog they consume is agreed. Steps 5 and 7 are independent of the rename and can run in parallel with 3–4.
+Steps 5 and 7 are independent of the rename and can run in parallel.
+
+**The schedule risk was misjudged.** The first draft named steps 3 and 4 as the risk. In practice step 3 was large but mechanical, step 4 was trivial, and the real cost was elsewhere: the HTTP header migration (§13), which this document never mentioned and which touches nine repos and the shared Go library, and the ordering constraints in §12, which no amount of code review substitutes for.
 
 ## 10. Verification
 
-- Rename: the CI guard from §6.4 passes in `pontkit-core`, `pontkit`, `branding-svc`, `saasbase-dashboard`, `pontive-next-demo` and `pontive-react-demo`. Storybook renders every story — core's and the 50 absorbed ui-kit ones — with correct styling, confirming the two Tailwind prefix changes did not silently drop classes.
-- Absorption: `dist/styles.css` contains no `--sb-`, `--rtg-` or `rtg-` string; nothing is `@import`ed from `node_modules`; `@revotech-group/revotech-ui-kit` is absent from `package.json` and the lockfile.
-- Repo A: `npm run build` emits `custom-elements.json` with all 266 elements; `dist/index.d.ts` includes exported types and tag-map entries for `pont-provider` etc.; `check:catalog` passes against the renamed tags; `npm pack --dry-run` shows only `dist`, `catalog.json`, `custom-elements.json`.
-- branding-svc: the golden corpus passes with `--pont-*`; a brand saved before the rename and recompiled after produces the same rendered colors.
+### Done (§9 steps 1–4)
+
+| | Result |
+|---|---|
+| CI guard (§6.4) | passes in `pontkit-core` |
+| `pontkit-core` | build ✓, 80/80 tests, `check:catalog` 0 mismatches over 86 resolved defaults, `tsc` 5 errors — all pre-existing auth-test failures, `main` had 17 |
+| Absorption | `dist/styles.css` carries no `--sb-`, `--rtg-`, `.sb-` or `.rtg-`; nothing `@import`ed from `node_modules`; `@revotech-group/revotech-ui-kit` gone from `package.json` and lockfile |
+| Stylesheet size | **1,026,755 → 573,179 bytes (44% smaller)**, from removing a doubled Tailwind pass and a primitive stylesheet that shipped twice (`postcss-append.cjs` appended what `tailwind.css` already imported). JS unchanged. |
+| Stylesheet diff vs published 2.16.6 | five names unaccounted for after normalising the deliberate renames, all Tailwind utilities used only by ui-kit's deleted `light-sample-demo` |
+| Cyclic vars | zero self-referential custom properties in 573KB of output |
+| Storybook | builds 444 entries (366 stories, 78 docs); auth form, radio group and alert rendered and checked |
+| `branding-svc` | full suite incl. postgres storage and the branding golden corpus; `genbuiltinwidgets` reports the artifact current; translation reconciliation 0 added / 0 dropped / 0 reset |
+| `saasbase-dashboard` | `audit:tokens` **443 panel controls, 443 driving a real token, 0 naming nothing**; `audit:style-groups` and `audit:widget-defaults` exit 0; `tsc` 0 errors |
+| Cross-repo | core's 29 catalog tags ⊂ branding-svc's 30 (`pont-block` extra), zero non-`pont-` tags; all three copies of the component-tier regex read `^pont-[a-z0-9-]+$` |
+| `identity-svc` | full suite, zero failures, against a local `replace` of branding-svc |
+
+**Not yet verified, and it is the one that needs a live system:** a brand saved before the rename, recompiled after, producing the same rendered colours. That is part of the §12 Chain B release, not of any branch.
+
+### Outstanding
+
+- The CI guard still needs adding to `pontkit`, `branding-svc`, `saasbase-dashboard` and both demos.
+- Repo A publish: `npm run build` emits `custom-elements.json` with all 262 elements; `dist/index.d.ts` includes exported types and tag-map entries; `npm pack --dry-run` shows only `dist`, `catalog.json`, `custom-elements.json`.
 - Repo B: root `npm run build` and `npm test` pass; existing `cdn-import.test.ts`, `ssr.test.ts`, `auth.test.tsx`, `runtime-config.test.ts`, `core-elements-version.test.ts` pass unchanged in their new homes; `npm pack --dry-run` per package shows correct `files`, `exports`, `sideEffects`, no `src/`.
 - Demo: install from local `npm pack` tarballs (not `npm link`, which loads a second React); `next dev`; sign-in flow and a client-side navigation with no `NotFoundError`; network tab shows core fetched from the platform's asset URL with an integrity attribute, and the SRI hash enforced.
 - Vue smoke app renders `<pont-provider>` with typed props and no console errors.
@@ -277,3 +337,56 @@ Sources (checked 2026-09-04):
 - https://raw.githubusercontent.com/workos/authkit-react/main/package.json
 - https://workos.com/docs/widgets/quick-start
 - https://workos.com/docs/user-management/widgets
+
+## 12. Release chains
+
+Nothing here can merge or deploy independently. Two chains, each a flag day, and both gated on a release only a human can trigger.
+
+### Chain A — the request headers (§13)
+
+1. Merge and **release `saasbase-core`** (currently v1.31.1). This is the shared Go library that reads the header.
+2. Bump `github.com/revotech-group/saasbase-core` in the seven services that embed it: `auth-api`, `management-api`, `identity-svc`, `branding-svc`, `platform-core-svc`, `webhook-svc`, `eventbus-svc`.
+3. Deploy those together with `saasbase-dashboard` and `@pontive/pontkit-core`.
+
+**No partial state works, and the failure is not graceful.** CORS is the first gate a browser hits: until `auth-api`'s allowlist names the new header, a preflight carrying it is rejected and the request never reaches the middleware. Deploy the middleware first and every client still sending the old name gets a 400. The system is pre-launch, so a flag day is acceptable; if that stops being true, have the middleware read the new name and fall back to the old for one release, and ordering stops mattering.
+
+### Chain B — the element vocabulary
+
+1. Merge and **release `branding-svc`** (currently v0.0.26) carrying the `pont-*` catalog and regenerated `widgets.json`.
+2. Bump it in `identity-svc`, whose resolver fixtures cannot pass until then (§6.5).
+3. Publish `@pontive/pontkit-core@3.0.0`.
+4. **Recompile every stored brand.** The compiled stylesheets in the database still carry `--sb-*` property names; nothing re-derives them on read.
+5. Then the consumers: both demos and `auth-api/web/hosted-login` (§9 step 8).
+
+`saasbase-dashboard` sits in both chains and must go out with both.
+
+## 13. The HTTP request headers
+
+Not in the first draft at all, and it is the change with the widest blast radius in this work.
+
+`@pontive/pontkit-core`'s fetch wrapper sends a project header on every call to `api.*`. Renaming the element vocabulary without renaming that header leaves `saasbase` in the most literally public surface the platform has — and `pontive-spec` had **already specified `X-Pontive-Project-ID`** in five places (`02-project-management.md`, `03-user-management.md`, `15`, `16`), so the implementation was the thing lagging, not the spec.
+
+| Header | Was | Now |
+|---|---|---|
+| Project scope, sent by browsers and SDKs to `api.*` | `X-Saasbase-Project-ID` | `X-Pontive-Project-ID` |
+| Serialized `RequestContext`, service to service | `X-Saasbase-Context` | `X-Pontive-Context` |
+
+Nine repos. The header is **read** in `saasbase-core/pkg/http/middlewares/{project,context}.go` — the shared library every service embeds — which is what makes this a release rather than a rename. It is **sent** by `pontkit-core` and `saasbase-dashboard`, and **allowlisted or documented** in `auth-api`, `management-api`, `platform-management-api` and `go-core`.
+
+Both names are now constants in `saasbase-core/pkg/http/middlewares/headers.go` rather than literals at each use site, so the next person to touch one can find the others.
+
+Two things deliberately left alone:
+
+- **`pkg/http/http_client.go` emits `X-Truuth-Context`**, not the context header the middleware reads. That mismatch predates this work and is harmless today because nothing in the platform sets the context header. Fixing it is a behaviour change, not a rename.
+- **`go-core`** is a stale copy of the same middleware that no service imports. Its headers were renamed for consistency only, so that nobody reintroduces the old names from it.
+
+## 14. Pre-existing bugs this surfaced
+
+None of these were caused by the rename. All were found because absorbing ui-kit made core's *declared* token set diffable against its *used* set for the first time, and because refreshing a stale snapshot made a fixture honest.
+
+- **The body font has been broken in production.** `--sb-sem-font-family` is read by `body` and by four widget typography tokens (countdown, subtitle, title, OTP) and declared **zero times** in published 2.16.6. ui-kit renamed it to `--sb-sem-font-family-default` between 1.0.10 and the 1.1.2 core depends on, and the references were never updated — so every heading, title and OTP has been falling back to the browser default font. Fixed.
+- **39 more dangling token references** remain: `var(--pont-x)` with no `--pont-x:` anywhere. Some are set at runtime by their element and are correct; telling those apart from real breakage is its own piece of work. Worth doing, worth not doing inside a rename.
+- **A golden fixture asserting nothing.** `rtg-button-radius-default` has never been declared by core, not even in published 2.16.6 — the real name is `rtg-button-default-radius`. The fixture's own comment warns that "a stale key here would leave the fixture quietly asserting nothing", and a stale token manifest was what hid it.
+- **The two golden corpora had already drifted.** `saasbase-dashboard`'s `compiler-golden.json` and `branding-svc`'s differ by 50 lines on `main` — the dashboard carries an `element-tier-tokens` case the service does not. They are described as enforcing that the two compilers agree; they do not currently do that.
+- **The stale token manifest itself.** `runtime-tokens.json` was snapshotted from a core older than the one shipping, which is precisely the failure its comment describes. Regenerating it against the real build moved it from 2409 to 2568 tokens.
+
