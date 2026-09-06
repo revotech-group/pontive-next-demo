@@ -1,4 +1,4 @@
-import { Signup } from "@/components/saasbase";
+import { Signup } from "@/components/pontkit";
 
 export default function SignUpPage() {
   return (

@@ -1,4 +1,4 @@
-import { authProxyRewrites } from "@saasbase-io/elements/proxy";
+import { authProxyRewrites } from "@pontive/pontkit-nextjs/server";
 
 /**
  * The whole auth integration, on the deployment side.
@@ -16,12 +16,12 @@ import { authProxyRewrites } from "@saasbase-io/elements/proxy";
  * the destination's Host upstream, which is exactly what the auth server needs to
  * resolve which project it is answering as.
  *
- * SB_AUTH_HOST is read at build time and never reaches the browser; the browser
- * only ever sees NEXT_PUBLIC_SB_AUTH_DOMAIN, which is the path above.
+ * PONTIVE_AUTH_HOST is read at build time and never reaches the browser; the browser
+ * only ever sees NEXT_PUBLIC_PONTIVE_AUTH_DOMAIN, which is the path above.
  */
 const nextConfig = {
   async rewrites() {
-    return authProxyRewrites({ authHost: process.env.SB_AUTH_HOST });
+    return authProxyRewrites({ authHost: process.env.PONTIVE_AUTH_HOST });
   },
 };
 

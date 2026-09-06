@@ -1,7 +1,7 @@
 "use client";
 
-import type { EnvConfig } from "@saasbase-io/elements";
-import { Provider } from "./saasbase";
+import type { EnvConfig } from "@pontive/pontkit-nextjs";
+import { Provider } from "./pontkit";
 
 /**
  * `domain` is a PATH, not a hostname — `/__auth`, which `next.config.mjs`
@@ -9,15 +9,15 @@ import { Provider } from "./saasbase";
  * the browser only ever talks to this app's own origin, so the cookies the auth
  * server sets are first-party and survive `SameSite=Lax`.
  *
- * Every value here is public. The auth server's real hostname is `SB_AUTH_HOST`,
+ * Every value here is public. The auth server's real hostname is `PONTIVE_AUTH_HOST`,
  * which is read in next.config.mjs at build time and never shipped to the
  * browser.
  */
 const env: EnvConfig = {
-  domain: process.env.NEXT_PUBLIC_SB_AUTH_DOMAIN!,
-  appId: process.env.NEXT_PUBLIC_SB_APP_ID!,
-  projectId: process.env.NEXT_PUBLIC_SB_PROJECT_ID!,
-  apiBaseUrl: process.env.NEXT_PUBLIC_SB_API_BASE_URL!,
+  domain: process.env.NEXT_PUBLIC_PONTIVE_AUTH_DOMAIN!,
+  appId: process.env.NEXT_PUBLIC_PONTIVE_APP_ID!,
+  projectId: process.env.NEXT_PUBLIC_PONTIVE_PROJECT_ID!,
+  apiBaseUrl: process.env.NEXT_PUBLIC_PONTIVE_API_BASE_URL!,
   signinUrl: "/signin",
   signupUrl: "/signup",
   signinRedirectUrl: "/",

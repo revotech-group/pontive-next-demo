@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { SignedIn, SignedOut } from "@/components/saasbase";
+import { SignedIn, SignedOut } from "@/components/pontkit";
 
 function ArrowIcon() {
   return (
@@ -165,7 +165,7 @@ export default function Home() {
                 <span className="pv-tok-key">import</span> {"{ authProxyRewrites }"}{" "}
                 <span className="pv-tok-key">from</span>{" "}
                 <span className="pv-tok-str">
-                  &quot;@saasbase-io/elements/proxy&quot;
+                  &quot;@pontive/pontkit-nextjs/server&quot;
                 </span>
                 ;{"\n\n"}
                 <span className="pv-tok-key">export default</span> {"{"}
@@ -175,7 +175,7 @@ export default function Home() {
                 {"\n"}
                 {"    "}
                 <span className="pv-tok-key">return</span> authProxyRewrites({"{"}{" "}
-                authHost: process.env.SB_AUTH_HOST {"}"});{"\n"}
+                authHost: process.env.PONTIVE_AUTH_HOST {"}"});{"\n"}
                 {"  "}
                 {"}"},{"\n"}
                 {"}"};{"\n"}

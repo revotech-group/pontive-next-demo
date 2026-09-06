@@ -18,11 +18,11 @@ lines:
 
 ```js
 // next.config.mjs
-import { authProxyRewrites } from "@saasbase-io/elements/proxy";
+import { authProxyRewrites } from "@pontive/pontkit-nextjs/server";
 
 export default {
   async rewrites() {
-    return authProxyRewrites({ authHost: process.env.SB_AUTH_HOST });
+    return authProxyRewrites({ authHost: process.env.PONTIVE_AUTH_HOST });
   },
 };
 ```
@@ -40,18 +40,23 @@ destination sends the destination's Host upstream, which is what the auth server
 needs to resolve which project it is answering as — so there is no header to
 configure and nothing to get wrong.
 
-## The one gotcha: server rendering
+## Server rendering, and why it is no longer a gotcha
 
-`@saasbase-io/elements/react` declares its component classes as
-`class SbProvider extends HTMLElement {}` at module scope. Importing it on the
-server throws `ReferenceError: HTMLElement is not defined`, and `"use client"`
-does not prevent that — Next renders client components on the server too.
+This used to be the hard part. The React bindings declared their component
+classes as `class SbProvider extends HTMLElement {}` at module scope, so
+importing them on a server threw `ReferenceError: HTMLElement is not defined` —
+and `"use client"` was no defence, because Next renders client components on the
+server too. Every widget had to be wrapped in `next/dynamic` with `ssr: false`.
 
-So every widget is imported through `next/dynamic` with `ssr: false`, collected
-in `components/saasbase.tsx`. That directive is only allowed inside a client
-component, which is why the pages import from there rather than from the package.
-The widgets are custom elements fetched from a CDN at runtime and render nothing
-on first paint regardless, so this costs nothing.
+Those placeholder classes are gone. `@pontive/pontkit-react` takes the element
+types from `@pontive/pontkit-core` with `import type`, which erases at build,
+so there is nothing left to evaluate on a server.
+
+`components/pontkit.tsx` is therefore a plain re-export file now. It keeps
+`"use client"` because these are custom elements driven by browser APIs and
+there is nothing for a server to do with them beyond rendering the placeholder
+they hydrate into — but that is a statement about where they belong, not a
+workaround for a crash.
 
 ## Running it
 
@@ -83,15 +88,15 @@ environment variables:
 
 | Variable | Value | Reaches the browser |
 |---|---|---|
-| `SB_AUTH_HOST` | the auth server's hostname | no — build-time only |
-| `NEXT_PUBLIC_SB_AUTH_DOMAIN` | `/__auth` | yes |
-| `NEXT_PUBLIC_SB_APP_ID` | the app id | yes |
-| `NEXT_PUBLIC_SB_PROJECT_ID` | the project id | yes |
-| `NEXT_PUBLIC_SB_API_BASE_URL` | the management API base | yes |
+| `PONTIVE_AUTH_HOST` | the auth server's hostname | no — build-time only |
+| `NEXT_PUBLIC_PONTIVE_AUTH_DOMAIN` | `/__auth` | yes |
+| `NEXT_PUBLIC_PONTIVE_APP_ID` | the app id | yes |
+| `NEXT_PUBLIC_PONTIVE_PROJECT_ID` | the project id | yes |
+| `NEXT_PUBLIC_PONTIVE_API_BASE_URL` | the management API base | yes |
 
 Then register the deployment's URL as an allowed origin on the app.
 
-`SB_AUTH_HOST` is deliberately not `NEXT_PUBLIC_` — the browser never needs the
+`PONTIVE_AUTH_HOST` is deliberately not `NEXT_PUBLIC_` — the browser never needs the
 auth server's real hostname, and keeping it out of the bundle is what makes the
 proxy path the only one the app knows about.
 

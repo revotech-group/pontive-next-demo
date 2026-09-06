@@ -4,14 +4,15 @@
  * ---------------------------------------------------------------------------
  * Why every selector carries a class
  * ---------------------------------------------------------------------------
- * The widgets pull `@saasbase-io/core-elements`' `styles.css` from jsDelivr and
+ * The widgets pull `@pontive/pontkit-core`' `styles.css` from jsDelivr and
  * append it to <head> at runtime — after this file. That sheet ships Tailwind's
  * preflight, which styles bare `body`, `h1`, `p`, `a`, `*`. Same specificity,
  * later in the cascade, so it wins:
  *
- *     body { font-family: var(--sb-sem-font-family) }   <- unset off the auth
- *                                                          pages, so the whole
- *                                                          app fell back to Times
+ *     body { font-family: var(--pont-sem-font-family-default) }
+ *                                              <- unset off the auth pages, so
+ *                                                 the whole app fell back to
+ *                                                 Times
  *     body { background-color: hsl(var(--background));
  *            color: hsl(var(--foreground)) }            <- ate the palette below
  *
