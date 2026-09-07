@@ -1,0 +1,18 @@
+node_modules
+.next
+out
+.git
+.github
+certificates
+docs
+*.tsbuildinfo
+.DS_Store
+
+# Deliberate. Every value this app reads is resolved at build time, and
+# `.env` files do NOT override variables already present in the environment —
+# so a committed `.env` cannot overwrite a build arg, but it CAN silently
+# supply one that was forgotten, producing an image pointing at the wrong
+# project with a clean build log. Keep it out of the context; the Dockerfile
+# fails loudly instead.
+.env
+.env.local

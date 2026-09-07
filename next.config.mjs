@@ -20,6 +20,17 @@ import { authProxyRewrites } from "@pontive/pontkit-nextjs/server";
  * only ever sees NEXT_PUBLIC_PONTIVE_AUTH_DOMAIN, which is the path above.
  */
 const nextConfig = {
+  /**
+   * Emits `.next/standalone` — a minimal `server.js` plus only the traced
+   * `node_modules`, runnable without an `npm install`. This is what the
+   * container runs; see the Dockerfile.
+   *
+   * It does not copy `.next/static` (or `public/`, which this app has none of),
+   * because those are meant for a CDN. The Dockerfile copies `.next/static`
+   * in explicitly so `server.js` serves it.
+   */
+  output: "standalone",
+
   async rewrites() {
     return authProxyRewrites({ authHost: process.env.PONTIVE_AUTH_HOST });
   },

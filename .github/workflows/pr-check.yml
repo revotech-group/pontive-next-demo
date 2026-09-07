@@ -1,0 +1,59 @@
+# Deliberately credential-free.
+#
+# This repository is public, and holds no AWS identity: the image is built and
+# pushed by `pontive-demos-infra`, a private repo, which checks this one out at
+# a pinned SHA. See docs/demo-hosting.md §6.5.
+#
+# So this workflow must never gain a secret, an `id-token: write` permission, or
+# a `pull_request_target` / credentialed `workflow_run` trigger. It runs on
+# strangers' branches, and it is safe to do so precisely because it can reach
+# nothing. `permissions: contents: read` is the whole budget.
+#
+# Architecture does not matter here — this checks that the code compiles and
+# builds, not that the image runs. The linux/arm64 build for Graviton happens
+# in the private repo.
+
+name: PR check
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci
+
+      # `.env` is not committed (see docs/demo-hosting.md §6.1). Every value in
+      # `.env.example` is public — an app id, a project id, two public
+      # hostnames — so the build uses them directly. Nothing here is a secret,
+      # and this is also the pattern a developer follows locally.
+      - name: Seed public build-time config
+        run: cp .env.example .env
+
+      - name: Typecheck
+        run: npx tsc --noEmit
+
+      # `next build` no longer runs linting in Next 16, and `next lint` was
+      # removed. This is a real build, and it is the check that matters: it is
+      # where a bad `next.config.mjs` or a server-evaluated browser API fails.
+      - name: Build
+        run: npm run build
