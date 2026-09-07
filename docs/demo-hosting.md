@@ -7,6 +7,7 @@ Scope: where to host the per-framework PontKit demos (`pontive-next-demo`, `pont
 
 | Date | Change |
 |---|---|
+| 2026-09-07 (pm, 7) | **Two private repos, not one** (§2.1). Reverses pm-5: the Go services already keep manifests in dedicated `*-gitops` repos, so the demos follow that convention. Records the consequence — the digest bump now crosses a repo boundary, which `GITHUB_TOKEN` cannot do. Also fixes a bug in the first draft: an Argo `Application` must not live in the path it syncs. |
 | 2026-09-07 (pm, 6) | **Scaffolded and verified.** `output: 'standalone'`, Dockerfile and the credential-free PR check landed in `pontive-next-demo`; the arm64 image was built and the proxy verified against the running container. Corrects §2/§3.2: a vanilla `NetworkPolicy` cannot restrict egress by hostname, only by CIDR. |
 | 2026-09-07 (pm, 5) | **Repo inventory made explicit** (§2.1). Multi-repo, not a monorepo, and §6.5's "the manifests repo, or one beside it" is settled as **one** private infra repo. |
 | 2026-09-07 (pm, 4) | **CI moves to a private repo** (§2, §6.5). The public demo repos end up with no AWS identity at all. Records that the obvious mechanism — a reusable workflow in a private repo — is closed twice over: GitHub forbids a public repo calling one, and the OIDC `sub` claim is the caller's regardless, so moving workflow *files* moves nothing. |
@@ -67,7 +68,7 @@ Two findings worth carrying into the bindings work:
 | Isolation | Own namespace, `ResourceQuota` + `LimitRange`, and a default-deny egress `NetworkPolicy` permitting DNS and TCP 443 to the public internet **while excluding the VPC and cluster CIDRs**. | §3.2. A public demo is internet-facing and is the least-reviewed code in the estate. It is a neighbour to the Go services, and should be treated as an untrusted one. |
 | Vercel | **Fallback, not the choice.** Reconsider only if demo deploys start competing with product work for the same people. | §3.1. It is not cheaper ($20/seat/month, scaling with headcount) and not lower-risk. It buys only "nobody owns uptime", which EKS has already bought. |
 | Cloudflare / Netlify | **Rejected.** | §3.1. Cloudflare's own recommended Next 16 path is `vinext`, a beta Vite plugin that *reimplements* the Next.js API surface and does not document `next.config` rewrites at all. Netlify's Next integration is likewise unverified. |
-| One repo or many | **One public repo per demo, plus one private infra repo. Not a monorepo.** | §2.1. |
+| One repo or many | **One public repo per demo, plus two private repos — `pontive-demos-ci` and `pontive-demos-gitops`. Not a monorepo.** | §2.1. |
 | Domain layout | **Subdomain per demo** under one apex: `next.demos.pontive.com`, `nuxt.…`, `angular.…`, `react.…`, with a landing page at `demos.pontive.com`. | §4. |
 | Pontive project | **One shared demo project and app**, with every demo's origin on its allowlist. | One brand to maintain, one set of test users, one place to look when sign-in breaks. |
 | Preview deployments | **UI review only. Never advertised as working demos.** | §4.1. |
@@ -81,13 +82,21 @@ Two findings worth carrying into the bindings work:
 | `pontive-next-demo` | **public** | The demo. Dockerfile, credential-free PR check. No AWS identity. |
 | `pontive-react-demo` | **public** | ditto |
 | `pontive-nuxt-demo`, `-angular-`, `-svelte-` | **public** | ditto, as they are built |
-| `pontive-demos-infra` | **private** | Build-and-push workflows (one matrix job over the demo repos), the Argo `Application`s, and the Deployment/Service/Ingress manifests with pinned image digests. Holds the only AWS identity in the picture (§6.4, §6.5). |
+| `pontive-demos-ci` | **private** | The promotion workflow, per-demo build config, and the IAM policies. Holds the only AWS identity in the picture (§6.4, §6.5) — a role that can push to one ECR path and touch nothing else. |
+| `pontive-demos-gitops` | **private** | Argo's source of truth: namespace guardrails, and the Deployment/Service/Ingress per demo with pinned image digests. Builds nothing. |
 
 **Not a monorepo**, for one reason that outweighs the drift risk: **a demo has to be clonable and runnable as-is.** A monorepo subdirectory is not — it inherits the root lockfile, workspace config and shared tsconfig, so `cp -r apps/nuxt ~/my-app` produces something that does not install, let alone run. The demo's entire job is to be the thing a developer copies. Next also needs an explicit `outputFileTracingRoot` to build inside a monorepo, which is exactly the kind of non-idiomatic config §4 rejects `basePath` for.
 
 The cost is accepted duplication: each demo repeats the landing copy, the theme and the account page in its own framework's idiom. **Do not factor that into a shared `@pontive/demo-shared` package** — a demo that depends on a private helper is no longer an example anyone can copy. Duplication is the feature here.
 
-Infra is **one** private repo, not a separate CI repo and manifests repo. Promotion is a single action — build, push, bump the digest, commit — and splitting it across two repos turns that into a cross-repo commit for no gain at this size. Argo watches a path within it.
+Infra is **two** private repos, revised 2026-09-07 from an earlier "one". The first draft kept them together because promotion is a single action — build, push, bump the digest, commit — and splitting it turns that into a cross-repo commit. It does; but the Go services already keep their manifests in dedicated `*-gitops` repos, and matching an established convention is worth more than saving one `actions/checkout`.
+
+Two consequences, neither fatal:
+
+- **`GITHUB_TOKEN` cannot make the digest commit.** It is scoped to the repository it is issued for. `pontive-demos-ci` mints a **GitHub App installation token scoped to `pontive-demos-gitops` alone** — narrower than a deploy key or a fine-grained PAT, and the App's private key is the only long-lived secret anywhere in the estate. It lives in a private repo and grants `contents: write` on one repository.
+- **Promotion stays one action only while `pontive-demos-gitops` accepts direct pushes.** If it gains branch protection, the workflow switches to a branch plus `gh pr create`, and shipping becomes run-the-workflow-then-merge. That is a reasonable trade for a repo Argo applies to production; it is just no longer one act.
+
+**An Argo `Application` must live outside the path it syncs.** The first scaffold put `argocd-application.yaml` inside `apps/next-demo/`, which is that Application's own `source.path` — Argo would have rendered it as part of the app and applied an `Application` into `pontive-demos`, a namespace where Argo does not look for them. The CRs now sit in `argocd/`, reached by an app-of-apps root applied once by hand.
 
 ## 3. Candidates
 
