@@ -1,12 +1,21 @@
 # syntax=docker/dockerfile:1
 
-# The cluster's nodes are Graviton, so this image must be linux/arm64.
+# The cluster's nodes are Graviton, so this image must be linux/arm64:
 #
 #   docker buildx build --platform linux/arm64 ...
 #
-# Build it on an arm64 runner. QEMU emulation produces a correct image but a
-# Next build under it takes minutes rather than seconds; the cluster already has
-# Graviton capacity if a self-hosted runner is easier than a hosted arm one.
+# It is built on an x86 runner all the same, and no QEMU is involved. The
+# builder stages pin $BUILDPLATFORM so they run natively; only the final stage
+# follows the target platform, which is the one that needs an arm64 `node`.
+#
+# That works because `next.config.mjs` excludes sharp from the output trace, so
+# `.next/standalone` is pure JavaScript with nothing architecture-specific in
+# it. This is the same idea as the Go services' `ARG GOARCH=arm64` — decide the
+# architecture in the Dockerfile, build natively — except Go cross-compiles a
+# static binary while Node needs a real arm64 runtime, so here it is the base
+# image of the last stage that carries the architecture rather than a compiler
+# flag. Add a `next/image` and the trace gains a native binary again; see the
+# note in next.config.mjs.
 #
 # `next/font/google` downloads Inter, JetBrains Mono and Playfair Display during
 # `next build`, so the builder stage needs egress to fonts.googleapis.com and
@@ -14,12 +23,12 @@
 
 ARG NODE_IMAGE=node:24-alpine
 
-FROM ${NODE_IMAGE} AS deps
+FROM --platform=$BUILDPLATFORM ${NODE_IMAGE} AS deps
 WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci
 
-FROM ${NODE_IMAGE} AS builder
+FROM --platform=$BUILDPLATFORM ${NODE_IMAGE} AS builder
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
@@ -62,6 +71,7 @@ RUN for v in PONTIVE_AUTH_HOST NEXT_PUBLIC_PONTIVE_APP_ID \
 
 RUN npm run build
 
+# No --platform: this stage follows the target, so it is the arm64 one.
 FROM ${NODE_IMAGE} AS runner
 WORKDIR /app
 

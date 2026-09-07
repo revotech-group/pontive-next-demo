@@ -31,6 +31,21 @@ const nextConfig = {
    */
   output: "standalone",
 
+  /**
+   * Sharp is the only architecture-specific thing in the traced output, and it
+   * is 27MB of 46MB. Excluding it makes `.next/standalone` pure JavaScript,
+   * which is what lets the image be built for arm64 on an x86 runner: the
+   * builder stage runs natively and the runtime stage is arm64, with no QEMU
+   * anywhere. Without this, an x86 build would silently copy an
+   * `@img/sharp-linux-x64` binary into a Graviton image.
+   *
+   * Safe because this app renders no `next/image`. If one is ever added, drop
+   * this and the build has to emulate — or optimize images somewhere else.
+   */
+  outputFileTracingExcludes: {
+    "**/*": ["node_modules/sharp/**", "node_modules/@img/**"],
+  },
+
   async rewrites() {
     return authProxyRewrites({ authHost: process.env.PONTIVE_AUTH_HOST });
   },
