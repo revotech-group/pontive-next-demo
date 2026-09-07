@@ -7,6 +7,7 @@ Scope: where to host the per-framework PontKit demos (`pontive-next-demo`, `pont
 
 | Date | Change |
 |---|---|
+| 2026-09-07 (pm, 8) | **Conformed to the platform's ApplicationSet model** (§2.1, §2.2). `platform-gitops` already generates Applications from a git directory generator over a gitops repo's overlays, and `pontive-gitops` is kustomize base + `overlays/<env>`. The hand-rolled app-of-apps is deleted; the demos are now read the same way as the Go services. Records the one deliberate departure — images move by digest, not `newTag`. Also raises §7: the only cluster in `platform-gitops` is `nonprod-shared`, which contradicts §2's "production-grade, not the dev cluster". |
 | 2026-09-07 (pm, 7) | **Two private repos, not one** (§2.1). Reverses pm-5: the Go services already keep manifests in dedicated `*-gitops` repos, so the demos follow that convention. Records the consequence — the digest bump now crosses a repo boundary, which `GITHUB_TOKEN` cannot do. Also fixes a bug in the first draft: an Argo `Application` must not live in the path it syncs. |
 | 2026-09-07 (pm, 6) | **Scaffolded and verified.** `output: 'standalone'`, Dockerfile and the credential-free PR check landed in `pontive-next-demo`; the arm64 image was built and the proxy verified against the running container. Corrects §2/§3.2: a vanilla `NetworkPolicy` cannot restrict egress by hostname, only by CIDR. |
 | 2026-09-07 (pm, 5) | **Repo inventory made explicit** (§2.1). Multi-repo, not a monorepo, and §6.5's "the manifests repo, or one beside it" is settled as **one** private infra repo. |
@@ -83,7 +84,8 @@ Two findings worth carrying into the bindings work:
 | `pontive-react-demo` | **public** | ditto |
 | `pontive-nuxt-demo`, `-angular-`, `-svelte-` | **public** | ditto, as they are built |
 | `pontive-demos-ci` | **private** | The promotion workflow, per-demo build config, and the IAM policies. Holds the only AWS identity in the picture (§6.4, §6.5) — a role that can push to one ECR path and touch nothing else. |
-| `pontive-demos-gitops` | **private** | Argo's source of truth: namespace guardrails, and the Deployment/Service/Ingress per demo with pinned image digests. Builds nothing. |
+| `pontive-demos-gitops` | **private** | Argo's source of truth: kustomize `base/` plus `overlays/<env>/`, matching `pontive-gitops`. Builds nothing. |
+| `platform-gitops` | private, **existing** | Gains one ApplicationSet and one AppProject (§2.2). Nothing else changes there, ever — new demos and new environments are picked up by the generator. |
 
 **Not a monorepo**, for one reason that outweighs the drift risk: **a demo has to be clonable and runnable as-is.** A monorepo subdirectory is not — it inherits the root lockfile, workspace config and shared tsconfig, so `cp -r apps/nuxt ~/my-app` produces something that does not install, let alone run. The demo's entire job is to be the thing a developer copies. Next also needs an explicit `outputFileTracingRoot` to build inside a monorepo, which is exactly the kind of non-idiomatic config §4 rejects `basePath` for.
 
@@ -97,6 +99,23 @@ Two consequences, neither fatal:
 - **Promotion stays one action only while `pontive-demos-gitops` accepts direct pushes.** If it gains branch protection, the workflow switches to a branch plus `gh pr create`, and shipping becomes run-the-workflow-then-merge. That is a reasonable trade for a repo Argo applies to production; it is just no longer one act.
 
 **An Argo `Application` must live outside the path it syncs.** The first scaffold put `argocd-application.yaml` inside `apps/next-demo/`, which is that Application's own `source.path` — Argo would have rendered it as part of the app and applied an `Application` into `pontive-demos`, a namespace where Argo does not look for them. The CRs now sit in `argocd/`, reached by an app-of-apps root applied once by hand.
+
+
+### 2.2 How the platform already does this
+
+Conformed 2026-09-07, after reading `platform-gitops` rather than inventing a layout. The first scaffold had a hand-rolled app-of-apps; the platform has a working model and the demos now use it.
+
+- **`platform-gitops/clusters/<region>/<cluster>/`** holds `applicationsets/` and `projects/`. The `pontive-apps` ApplicationSet runs a **git directory generator** over `pontive-gitops`'s `overlays/dev`, templating `pontive-{{.path.basename}}` into namespace `pontive-{{.path.basename}}` with `CreateNamespace=true`.
+- **`pontive-gitops`** is kustomize `base/` plus `overlays/{dev,staging,prod}/`, and images move by an `images:` `newTag:` entry in the overlay.
+
+The demos copy all of it: `pontive-demos-apps` generates over `pontive-demos-gitops/overlays/*`, and a new demo or a new environment therefore needs **no change in `platform-gitops`**. Two deliberate departures:
+
+| Departure | Why |
+|---|---|
+| Images move by **`digest:`**, not `newTag:` | The Go services are built from private repos. These are built from public ones, so the step from "a stranger opened a pull request" to "it is running" has to be an explicit commit. A digest is content and cannot be repointed; a tag can, which would make `pontive-demos-ci`'s push-only role a deploy credential. Same reason there is no Argo Image Updater. |
+| Its **own AppProject**, not a slot in `pontive` | `pontive`'s project allows `namespaceResourceWhitelist: "*"` and names `pontive-gitops` as a source. The demos get a project confined to `pontive-demos-*` namespaces, their own gitops repo, and an enumerated six resource kinds. This is §3.2's isolation argument expressed where Argo can enforce it. |
+
+No `PodIdentityAssociation` patch is needed either — the demos hold no AWS identity at runtime, so there is no `clusterName` to rewrite. They are also not linkerd-injected, unlike the `pontive` namespace: a demo talks to one public host through its own rewrite and to nothing inside the mesh.
 
 ## 3. Candidates
 
@@ -237,3 +256,4 @@ A managed platform gives a reader nothing to copy: a `vercel.json` and a dashboa
 - **Whether the demo project lives on `pontive-dev` or production.** The README's env example uses `pontive-dev.com` and notes the dev WAF blocks `localhost` flow-starts. §5 step 1 assumes production; confirm before building the image, since §5.1 means changing it later is a rebuild.
 - **Whether demos share the production cluster or get their own.** §2 assumes a namespace on the existing production cluster with the §3.2 controls. A separate small cluster is cleaner isolation at real cost, and is probably only worth it if the demos grow beyond static pages plus a proxy.
 - **How Argo currently resolves images for the Go services.** §6.3 only holds if these apps track a pinned digest. If Image Updater is already auto-tracking mutable tags across the estate, the demos should be the exception, and it is worth asking whether the Go services want the same treatment.
+- **The demos are going onto `nonprod-shared`, which contradicts §2.** That decision says production-grade, not the dev cluster, because a demo that is down when a prospect clicks it is worse than no demo. But `nonprod-shared` in `us-east-1` is the only cluster `platform-gitops` describes, and the dev overlay points at `pontive-dev.com`. Either a prod cluster's ApplicationSet lives somewhere this document has not seen, or the demos need a `overlays/prod` and a second entry once one exists. Resolve before the demos are given to customers, not before they are given to the team.
