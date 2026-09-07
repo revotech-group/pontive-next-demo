@@ -7,6 +7,7 @@ Scope: where to host the per-framework PontKit demos (`pontive-next-demo`, `pont
 
 | Date | Change |
 |---|---|
+| 2026-09-08 | **No bespoke IAM** (§6.4). The Go services assume a shared `GithubActionsRole` through `ci-workflows/go-microservices.yaml` and self-provision their ECR repository; the demos do the same. The narrow push-only role §6.4 argued for was justified by a risk — a public repo where anyone can propose a workflow change — that moving CI into a private repo had already removed. Adds the one question this raises: whether `GithubActionsRole`'s trust policy wildcards the org. |
 | 2026-09-07 (pm, 9) | **Dev for now** (§2). Reverses pm-2's "production-grade, not the dev cluster" for the time being: `nonprod-shared` is the only cluster `platform-gitops` describes, and the audience today is the team, not customers. The revisit trigger is the first time a demo link is sent outside Revotech — which is also the point at which the `pontive-dev.com` hostname stops being acceptable. |
 | 2026-09-07 (pm, 8) | **Conformed to the platform's ApplicationSet model** (§2.1, §2.2). `platform-gitops` already generates Applications from a git directory generator over a gitops repo's overlays, and `pontive-gitops` is kustomize base + `overlays/<env>`. The hand-rolled app-of-apps is deleted; the demos are now read the same way as the Go services. Records the one deliberate departure — images move by digest, not `newTag`. Also raises §7: the only cluster in `platform-gitops` is `nonprod-shared`, which contradicts §2's "production-grade, not the dev cluster". |
 | 2026-09-07 (pm, 7) | **Two private repos, not one** (§2.1). Reverses pm-5: the Go services already keep manifests in dedicated `*-gitops` repos, so the demos follow that convention. Records the consequence — the digest bump now crosses a repo boundary, which `GITHUB_TOKEN` cannot do. Also fixes a bug in the first draft: an Argo `Application` must not live in the path it syncs. |
@@ -222,15 +223,17 @@ The blast radius of that role is one image tag in one repository **only if Argo 
 
 The remaining path to production is a maintainer merging a malicious PR to `main` and then a human promoting the digest. Branch protection with required review on `main` covers the first half; the digest bump covers the second.
 
-### 6.4 The ECR role
+### 6.4 IAM: use what the Go services use
 
-All of the following, not a subset:
+Revised 2026-09-08, replacing a bespoke push-only role this section previously specified.
 
-- **OIDC only.** No long-lived AWS access keys in repository secrets, ever — those *are* stealable, and a public repo makes every leak path public too.
-- **Trust policy pinned to `repo:<org>/<repo>:ref:refs/heads/main`**, with `aud` validated. **Never** a `repo:<org>/*` wildcard: a public repo is a place where anyone can propose a workflow change, and a loose `sub` claim turns that into role assumption.
-- **Push, not deploy.** The policy grants `ecr:PutImage`, `ecr:InitiateLayerUpload`, `ecr:UploadLayerPart`, `ecr:CompleteLayerUpload` and `ecr:BatchCheckLayerAvailability` on **one repository ARN**, plus the account-wide `ecr:GetAuthorizationToken` that AWS requires (harmless — the returned token can only do what the statements above allow). No EKS permissions of any kind. No shared CI role.
-- **`pull_request` only — never `pull_request_target`, never `workflow_run` with credentials.** Those run in the base repo's context with secrets available, and checking out PR code under them is the standard public-repo compromise. Fork PRs build and test; they do not touch AWS.
-- A GitHub Environment with required reviewers if you want a human gate on the push itself. With §6.3's digest pinning this is belt-and-braces, since the promotion commit is already the gate.
+`identity-svc` calls `revotech-group/ci-workflows/.github/workflows/go-microservices.yaml`, which assumes **`arn:aws:iam::${AWS_ACCOUNT_ID}:role/GithubActionsRole`** over OIDC, names the ECR repository after `${{ github.repository }}`, and creates it on first push. The demos now do exactly that. `AWS_ACCOUNT_ID` is a secret, so no account number appears in any workflow file.
+
+The earlier design — a dedicated role scoped to `ecr:PutImage` on one repository ARN, with the trust policy pinned to one branch — was not wrong, it was **redundant**. Its whole justification was that a public repo is a place where anyone can propose a workflow change. §6.5 had already removed that by moving CI into a private repo. Keeping the bespoke role would have meant maintaining a second IAM path, diverging from the platform, for a risk that no longer existed.
+
+One addition to the inherited pattern: the demo repositories are created **`IMMUTABLE`** with scan-on-push. `ci-workflows` does not set this, and it matters more here than there — §6.3's gate is only a gate if the tag beside the pinned digest cannot be repointed at different content.
+
+**The one thing to check:** does `GithubActionsRole`'s trust policy match `repo:revotech-group/*`? If it does, making the demo repos public brings them inside that wildcard, and a workflow on their `main` could mint a token for it. Nothing in this design does that — the public repos' PR check declares `permissions: contents: read` and requests no `id-token` — but it is worth knowing before public repos become common in the org, because the property that protects it is a convention rather than the trust policy.
 
 ### 6.5 Moving CI into a private repo
 
