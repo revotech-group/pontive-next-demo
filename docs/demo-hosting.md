@@ -7,6 +7,7 @@ Scope: where to host the per-framework PontKit demos (`pontive-next-demo`, `pont
 
 | Date | Change |
 |---|---|
+| 2026-09-08 (8) | **DNS created** (§5). The wildcard ALIAS is in place, so every prerequisite outside the repos is now done. Notes a pre-existing problem found on the way: `platform-core-grpc.dev.tribify.io` is a dangling CNAME to an ALB replaced on 2026-08-30 — the reason these records are ALIAS, not CNAME. |
 | 2026-09-08 (7) | **Certificate issued; DNS is manual** (§5). The wildcard `*.demos.pontive-dev.com` certificate is in place, so no placeholders remain. The cluster runs no external-dns, so hostnames resolve only once someone creates a record — recommended as one wildcard ALIAS, which keeps "adding a demo touches only the gitops repo" true. Notes that neither wildcard covers the apex the §4 landing page would sit on. |
 | 2026-09-08 (6) | **Verified against the cluster** (§3.2). `IngressClassParams/alb-shared` carries `group.name: nonprod-shared`, so the demos join the ALB that already exists and add no load balancer. Corrects a claim made from assumption in pm-4: a plain `alb` IngressClass **does** exist on this cluster. |
 | 2026-09-08 (5) | **One Ingress for all demos** (§3.2). An Ingress per demo could have meant an ALB per demo — grouping for `alb-shared` lives in an `IngressClassParams` outside these repos — at roughly the monthly cost of the managed platform §3 rejected. A single Ingress with a host rule per demo removes the dependency on grouping entirely. |
@@ -194,7 +195,7 @@ The same trap already applies locally and is documented in this repo's README: `
 1. Settle the three choices in §5.2 and record the resulting auth host, app id and project id in `pontive-demos-ci/build/next-demo.env`.
 2. Add `output: 'standalone'` to `next.config.mjs` and a Dockerfile to this repo. Verify locally: `node .next/standalone/server.js`, then the two README curl checks against it.
 3. **Done** — the wildcard `*.demos.pontive-dev.com` certificate is issued and in the Ingress. Merge the `platform-gitops` branch.
-3b. Create one wildcard DNS record, `*.demos.pontive-dev.com` ALIAS → `k8s-nonprodshared-5460108ce8-354174175.us-east-1.elb.amazonaws.com`, in the `pontive-dev.com` public zone `Z03889082EN3VVKF7S2C1`. The cluster runs no external-dns, so nothing creates this for you.
+3b. **Done** — `*.demos.pontive-dev.com` ALIAS A onto the shared ALB, in the `pontive-dev.com` public zone `Z03889082EN3VVKF7S2C1`. The cluster runs no external-dns, so this was created by hand and no future demo needs another.
 4. Run the promotion workflow in `pontive-demos-ci` against the demo's commit SHA; Argo does the rest.
 5. Register `https://next.demos.pontive-dev.com` as an allowed origin on the demo app. Verify against the deployed URL — a 200 `text/css` from `/__auth/auth/v1/apps/$APP_ID/branding.css` proves the rewrite and the upstream `Host` are both right. HTML back means the rewrite did not match.
 6. Repeat for `pontive-react-demo`, and resolve the production-proxy gap for Vite SPAs (§1.2) while doing it — whatever that demo does becomes the answer `@pontive/pontkit-loader`'s docs give every SPA customer.
