@@ -7,6 +7,7 @@ Scope: where to host the per-framework PontKit demos (`pontive-next-demo`, `pont
 
 | Date | Change |
 |---|---|
+| 2026-09-08 (3) | **§5 step 1 disambiguated, and a trap named** (§5.2). "Deploy to dev" was collapsing three independent choices — which cluster, which Pontive deployment, and which *project mode*. The third had never been raised and is the one that decides whether the demo proves anything: a sandbox project's cookies are not `SameSite=Lax`, so the proxy this demo exists to demonstrate would be doing nothing visible. |
 | 2026-09-08 (2) | **arm64 images from the x86 runner** (§3.2). No arm64 runner, no QEMU — the Dockerfile pins its builder stages to `$BUILDPLATFORM` and lets only the final stage follow the target, which works because sharp is excluded from Next's output trace. Verified by building for a foreign architecture and running the result. |
 | 2026-09-08 | **No bespoke IAM** (§6.4). The Go services assume a shared `GithubActionsRole` through `ci-workflows/go-microservices.yaml` and self-provision their ECR repository; the demos do the same. The narrow push-only role §6.4 argued for was justified by a risk — a public repo where anyone can propose a workflow change — that moving CI into a private repo had already removed. Adds the one question this raises: whether `GithubActionsRole`'s trust policy wildcards the org. |
 | 2026-09-07 (pm, 9) | **Dev for now** (§2). Reverses pm-2's "production-grade, not the dev cluster" for the time being: `nonprod-shared` is the only cluster `platform-gitops` describes, and the audience today is the team, not customers. The revisit trigger is the first time a demo link is sent outside Revotech — which is also the point at which the `pontive-dev.com` hostname stops being acceptable. |
@@ -182,7 +183,7 @@ The same trap already applies locally and is documented in this repo's README: `
 
 ## 5. What to do
 
-1. Create the shared demo project and app on **`pontive-dev`** (§2 — dev for now); note its auth host, app id and project id into `pontive-demos-ci/build/next-demo.env`.
+1. Settle the three choices in §5.2 and record the resulting auth host, app id and project id in `pontive-demos-ci/build/next-demo.env`.
 2. Add `output: 'standalone'` to `next.config.mjs` and a Dockerfile to this repo. Verify locally: `node .next/standalone/server.js`, then the two README curl checks against it.
 3. Fill in `<VPC_CIDR>` and `<ACM_CERT_ARN>` in `pontive-demos-gitops`, and merge the `platform-gitops` branch.
 4. Run the promotion workflow in `pontive-demos-ci` against the demo's commit SHA; Argo does the rest.
@@ -195,6 +196,26 @@ The same trap already applies locally and is documented in this repo's README: `
 `next.config.js` is read during `next build` and serialised into the output — the rewrite destination is baked into the routes manifest, not read at runtime. Every variable this demo uses is build-time: `PONTIVE_AUTH_HOST` (which is why it is deliberately not `NEXT_PUBLIC_`) and all four `NEXT_PUBLIC_*` values, which are inlined into the bundle.
 
 So a demo image **cannot be repointed at a different project by changing a pod env var**. Setting `PONTIVE_AUTH_HOST` in the Deployment manifest and expecting it to take effect is the failure mode to watch for: the pod starts clean and sign-in fails against whatever host was baked in at build. Pass them as build args in CI, one image per target project, and tag accordingly.
+
+### 5.2 "Dev" means three independent things
+
+Worth separating, because two of them are settled and the third decides whether the demo is honest.
+
+| Axis | Options | Status |
+|---|---|---|
+| Which **EKS cluster** the pods run on | `nonprod-shared`, or a prod cluster once one is described | **Settled: `nonprod-shared`** (§2), revisited when a demo link first leaves Revotech |
+| Which **Pontive deployment** the demo authenticates against | the dev one at `api.pontive-dev.com`, or production Pontive | **Dev**, matching the cluster. This is what produces an auth host like `idmatic-wqpdw11s.auth.us.pontive-dev.com` |
+| Which **mode the Pontive project is in** | production or sandbox | **Must be production.** See below |
+
+They are genuinely independent — nothing stops demo pods on a nonprod cluster from authenticating against production Pontive, since the auth host is reached over the public internet like any other.
+
+**The project must be in production mode, and this is not a detail.** This repo's README states the case the demo exists to make: the refresh cookie is withheld *"for a production project, whose cookies are `SameSite=Lax`"*. That is precisely the condition `authProxyRewrites` answers.
+
+Point the demo at a **sandbox** project and the failure is silent and inverted: the cookie is not `SameSite=Lax`, the third-party cookie problem never bites, sign-in works — and it would have worked without the proxy. The demo would look like a success while demonstrating nothing, and the first person to discover otherwise would be a customer copying the pattern into their own production project. A demo that cannot fail for the right reason is not evidence.
+
+There is already a project to consider rather than create: `.env.example` points at `proj_06fghx60hnrcxftadsj44e0pj8` with app `app_06fgq637wsxt7610cfnxxthy08` on `pontive-dev`. If that becomes the demo's project, step 1 is confirming its mode and adding the deployed origin to its allowlist — not creating anything.
+
+**Whichever way these go, §5.1 applies:** all three land in build args baked into the image, so changing one later is a rebuild and a re-promotion, not a manifest edit.
 
 ## 6. The repos are public
 
