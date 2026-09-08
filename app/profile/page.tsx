@@ -16,12 +16,14 @@ export default function ProfilePage() {
       <SignedIn>
         {/*
           The session card is the app's own markup, so the page still reads as
-          finished when the widget under it has nothing to show. It routinely
-          has nothing on `localhost`: `<AccountSettings>` fetches the profile
-          from NEXT_PUBLIC_PONTIVE_API_BASE_URL, and a localhost origin is not one
-          the management API answers — it fails with `TypeError: Failed to
-          fetch` and the element renders empty. On a deployed origin registered
-          on the app, the settings panel fills the space below.
+          finished while the widget under it is loading. `<AccountSettings>`
+          fetches the profile from NEXT_PUBLIC_PONTIVE_API_BASE_URL/mgmt/v1/me
+          with the session's access token — a plain bearer request to the
+          management gateway, cross-origin, with no cookies involved. The
+          gateway checks the request's Origin against the origins registered
+          on the app; `localhost` is admitted as a development origin, and a
+          deployed URL must be registered on the app or the call is refused
+          with 403.
         */}
         <div className="pv-card pv-session">
           <div className="pv-session__body">

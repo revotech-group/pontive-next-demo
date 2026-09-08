@@ -91,10 +91,13 @@ environment variables:
 | `PONTIVE_AUTH_HOST` | the auth server's hostname | no — build-time only |
 | `NEXT_PUBLIC_PONTIVE_AUTH_DOMAIN` | `/__auth` | yes |
 | `NEXT_PUBLIC_PONTIVE_APP_ID` | the app id | yes |
-| `NEXT_PUBLIC_PONTIVE_PROJECT_ID` | the project id | yes |
-| `NEXT_PUBLIC_PONTIVE_API_BASE_URL` | the management API base | yes |
+| `NEXT_PUBLIC_PONTIVE_PROJECT_ID` | the project id — not read by the API client any more (the token names the project); kept only until the framework packages are rebuilt without it | yes |
+| `NEXT_PUBLIC_PONTIVE_API_BASE_URL` | the management gateway, e.g. `https://api.us.pontive.com`; the SDK calls it from the browser with the user's bearer token | yes |
 
-Then register the deployment's URL as an allowed origin on the app.
+Then register the deployment's URL as an allowed origin on the app. That one
+registration governs both surfaces: the auth server's CORS allowlist, and the
+management gateway's per-app origin check on every call `<AccountSettings>`
+makes with the user's token.
 
 `PONTIVE_AUTH_HOST` is deliberately not `NEXT_PUBLIC_` — the browser never needs the
 auth server's real hostname, and keeping it out of the bundle is what makes the
