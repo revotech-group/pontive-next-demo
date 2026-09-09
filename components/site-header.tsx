@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { SignedIn, SignedOut, NavUser } from "@/components/pontkit";
+import { SignedIn, SignedOut, AccountMenu } from "@/components/pontkit";
 import { ThemeToggle } from "@/components/theme-toggle";
 
 const links = [
@@ -51,7 +51,7 @@ export function SiteHeader() {
             </Link>
           </SignedOut>
           <SignedIn>
-            <NavUser accountSettingsPath="/profile" />
+            <AccountMenu accountSettingsPath="/profile" />
           </SignedIn>
         </div>
       </div>
