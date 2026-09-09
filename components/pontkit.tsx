@@ -21,6 +21,6 @@ export {
   Signup,
   SignedIn,
   SignedOut,
-  NavUser,
+  AccountMenu,
   AccountSettings,
 } from "@pontive/pontkit-nextjs";

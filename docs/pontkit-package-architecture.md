@@ -113,7 +113,7 @@ Single package. Changes, in order:
 3. Rename the package; keep `files: ["dist", "catalog.json"]`; add `sideEffects: true`.
 4. Add `@custom-elements-manifest/analyzer`. Emit `custom-elements.json`, add to `files`, declare via the `customElements` package.json field. This is the input for every framework's wrapper generation. Mark the primitives so codegen can exclude them from the React/Vue wrapper surface if wanted.
 5. Export `@/types` from `src/index.ts`.
-6. Add `HTMLElementTagNameMap` declarations to the widget/wrapper elements (`pont-provider`, `pont-signin`, `pont-signup`, `pont-nav-user`, …). Today only renderers/ui declare them, which is exactly the set React wraps.
+6. Add `HTMLElementTagNameMap` declarations to the widget/wrapper elements (`pont-provider`, `pont-signin`, `pont-signup`, `pont-account-menu`, …). Today only renderers/ui declare them, which is exactly the set React wraps.
 7. ✅ Extract `src/auth` to `@pontive/oidc-client`; depend on it. `waitForAuthConfigured` stays in core — it warns about `<pont-provider>`, which is a widget concern — and `auth.configured.test.ts` splits along the same line.
 8. Dependency hygiene: `lit` to `dependencies`; remove `react`, `react-dom`, `next` peers, `@lit/react`, and `@storybook/web-components` from runtime deps (the bundle is ~1 MB JS + ~1 MB CSS partly because of these).
 9. Rewrite the stale `CLAUDE.md` (still describes `/react` and `/next` entries that live in the other repo).
