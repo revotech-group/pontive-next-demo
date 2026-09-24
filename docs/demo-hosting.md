@@ -12,7 +12,7 @@ Scope: where to host the per-framework PontKit demos (`pontive-next-demo`, `pont
 | 2026-09-08 (6) | **Verified against the cluster** (§3.2). `IngressClassParams/alb-shared` carries `group.name: nonprod-shared`, so the demos join the ALB that already exists and add no load balancer. Corrects a claim made from assumption in pm-4: a plain `alb` IngressClass **does** exist on this cluster. |
 | 2026-09-08 (5) | **One Ingress for all demos** (§3.2). An Ingress per demo could have meant an ALB per demo — grouping for `alb-shared` lives in an `IngressClassParams` outside these repos — at roughly the monthly cost of the managed platform §3 rejected. A single Ingress with a host rule per demo removes the dependency on grouping entirely. |
 | 2026-09-08 (4) | **NetworkPolicy dropped; Ingress corrected** (§2, §3.2). Both were invented rather than observed: `pontive-gitops` has no NetworkPolicy, no quotas and no CIDR anywhere, and the cluster's IngressClasses are `alb-pontive` and `alb-shared`, not `alb`. The quotas stay — they are enforced unconditionally, unlike a NetworkPolicy the CNI may ignore in silence. |
-| 2026-09-08 (3) | **§5 step 1 disambiguated, and a trap named** (§5.2). "Deploy to dev" was collapsing three independent choices — which cluster, which Pontive deployment, and which *project mode*. The third had never been raised and is the one that decides whether the demo proves anything: a sandbox project's cookies are not `SameSite=Lax`, so the proxy this demo exists to demonstrate would be doing nothing visible. |
+| 2026-09-08 (3) | **§5 step 1 disambiguated, and a trap named** (§5.2). "Deploy to dev" was collapsing three independent choices — which cluster, which Pontive deployment, and which *instance environment*. The third had never been raised and is the one that decides whether the demo proves anything: a non-production instance's cookies are not `SameSite=Lax`, so the proxy this demo exists to demonstrate would be doing nothing visible. |
 | 2026-09-08 (2) | **arm64 images from the x86 runner** (§3.2). No arm64 runner, no QEMU — the Dockerfile pins its builder stages to `$BUILDPLATFORM` and lets only the final stage follow the target, which works because sharp is excluded from Next's output trace. Verified by building for a foreign architecture and running the result. |
 | 2026-09-08 | **No bespoke IAM** (§6.4). The Go services assume a shared `GithubActionsRole` through `ci-workflows/go-microservices.yaml` and self-provision their ECR repository; the demos do the same. The narrow push-only role §6.4 argued for was justified by a risk — a public repo where anyone can propose a workflow change — that moving CI into a private repo had already removed. Adds the one question this raises: whether `GithubActionsRole`'s trust policy wildcards the org. |
 | 2026-09-07 (pm, 9) | **Dev for now** (§2). Reverses pm-2's "production-grade, not the dev cluster" for the time being: `nonprod-shared` is the only cluster `platform-gitops` describes, and the audience today is the team, not customers. The revisit trigger is the first time a demo link is sent outside Revotech — which is also the point at which the `pontive-dev.com` hostname stops being acceptable. |
@@ -81,7 +81,7 @@ Two findings worth carrying into the bindings work:
 | Cloudflare / Netlify | **Rejected.** | §3.1. Cloudflare's own recommended Next 16 path is `vinext`, a beta Vite plugin that *reimplements* the Next.js API surface and does not document `next.config` rewrites at all. Netlify's Next integration is likewise unverified. |
 | One repo or many | **One public repo per demo, plus two private repos — `pontive-demos-ci` and `pontive-demos-gitops`. Not a monorepo.** | §2.1. |
 | Domain layout | **Subdomain per demo** under one apex: `next.demos.pontive.com`, `nuxt.…`, `angular.…`, `react.…`, with a landing page at `demos.pontive.com`. | §4. |
-| Pontive project | **One shared demo project and app**, with every demo's origin on its allowlist. | One brand to maintain, one set of test users, one place to look when sign-in breaks. |
+| Pontive project | **One shared demo project (its production instance) and app**, with every demo's origin on its allowlist. | One brand to maintain, one set of test users, one place to look when sign-in breaks. |
 | Preview deployments | **UI review only. Never advertised as working demos.** | §4.1. |
 | CI/CD | **Build and push run in a private repo**, which checks out the public source at a pinned SHA. The public repos keep a credential-free PR check and the Dockerfile, and hold no AWS identity at all. | §6.5. Removes the last credential-shaped thing from a repo where anyone can propose a workflow change. |
 
@@ -166,7 +166,7 @@ Nothing here is novel; it is the deployment every one of these demos would get i
 - **One Ingress for every demo, not one per demo.** This was written as a cost control while the grouping was unknown — without a group, the controller provisions one ALB per Ingress, and an Ingress per demo would have meant roughly $20/month each, about what Vercel Pro costs and enough to dismantle the "~$0 marginal, flat in N" argument that chose EKS in §3. With `nonprod-shared` confirmed, that risk is gone and the single Ingress is kept for a smaller reason: it keeps the listener rules and the certificate in one place as demos are added. It is also the shape `pontive-gitops` already uses — one Ingress, two gRPC hosts.
 - **Watch this line as demos are added.** "Flat in N" is the claim the whole hosting decision rests on. Anything that turns a new demo into a new *billable AWS resource* — a load balancer, a certificate, a hosted zone — breaks it. As built, nothing does: demos share one ALB via group `nonprod-shared`, one wildcard certificate, and one wildcard DNS record. **Adding a demo touches only `pontive-demos-gitops`** — a host block and a Service. That property is worth protecting deliberately, because the natural way to add a demo (its own Ingress, its own certificate, its own record) breaks all three at once.
 - **The apex is outside both wildcards.** A wildcard matches exactly one label, so `*.demos.pontive-dev.com` covers `next.demos.pontive-dev.com` but not `demos.pontive-dev.com`. The §4 landing page would need its own DNS record and the apex added as a certificate SAN, which means a reissue. Worth settling before the first demo ships rather than after.
-- **The proxy hop stays public.** `authProxyRewrites` sends the auth server's own hostname upstream as `Host`, which is how auth-api resolves which project it is answering as. Do not "optimise" this into a cluster-internal service address — the `Host` header is the mechanism, and short-circuiting it breaks project resolution.
+- **The proxy hop stays public.** `authProxyRewrites` sends the auth server's own hostname upstream as `Host`, which is how auth-api resolves which instance it is answering as. Do not "optimise" this into a cluster-internal service address — the `Host` header is the mechanism, and short-circuiting it breaks instance resolution.
 
 ## 4. Layout
 
@@ -192,7 +192,7 @@ The same trap already applies locally and is documented in this repo's README: `
 
 ## 5. What to do
 
-1. Settle the three choices in §5.2 and record the resulting auth host, app id and project id in `pontive-demos-ci/build/next-demo.env`.
+1. Settle the three choices in §5.2 and record the resulting auth host and app id in `pontive-demos-ci/build/next-demo.env`.
 2. Add `output: 'standalone'` to `next.config.mjs` and a Dockerfile to this repo. Verify locally: `node .next/standalone/server.js`, then the two README curl checks against it.
 3. **Done** — the wildcard `*.demos.pontive-dev.com` certificate is issued and in the Ingress. Merge the `platform-gitops` branch.
 3b. **Done** — `*.demos.pontive-dev.com` ALIAS A onto the shared ALB, in the `pontive-dev.com` public zone `Z03889082EN3VVKF7S2C1`. The cluster runs no external-dns, so this was created by hand and no future demo needs another.
@@ -205,7 +205,7 @@ The same trap already applies locally and is documented in this repo's README: `
 
 `next.config.js` is read during `next build` and serialised into the output — the rewrite destination is baked into the routes manifest, not read at runtime. Every variable this demo uses is build-time: `PONTIVE_AUTH_HOST` (which is why it is deliberately not `NEXT_PUBLIC_`) and all four `NEXT_PUBLIC_*` values, which are inlined into the bundle.
 
-So a demo image **cannot be repointed at a different project by changing a pod env var**. Setting `PONTIVE_AUTH_HOST` in the Deployment manifest and expecting it to take effect is the failure mode to watch for: the pod starts clean and sign-in fails against whatever host was baked in at build. Pass them as build args in CI, one image per target project, and tag accordingly.
+So a demo image **cannot be repointed at a different instance by changing a pod env var**. Setting `PONTIVE_AUTH_HOST` in the Deployment manifest and expecting it to take effect is the failure mode to watch for: the pod starts clean and sign-in fails against whatever host was baked in at build. Pass them as build args in CI, one image per target instance, and tag accordingly.
 
 ### 5.2 "Dev" means three independent things
 
@@ -214,16 +214,16 @@ Worth separating, because two of them are settled and the third decides whether 
 | Axis | Options | Status |
 |---|---|---|
 | Which **EKS cluster** the pods run on | `nonprod-shared`, or a prod cluster once one is described | **Settled: `nonprod-shared`** (§2), revisited when a demo link first leaves Revotech |
-| Which **Pontive deployment** the demo authenticates against | the dev one at `api.pontive-dev.com`, or production Pontive | **Dev**, matching the cluster. This is what produces an auth host like `idmatic-wqpdw11s.auth.us.pontive-dev.com` |
-| Which **mode the Pontive project is in** | production or sandbox | **Must be production.** See below |
+| Which **Pontive deployment** the demo authenticates against | the dev one at `api.pontive-dev.com`, or production Pontive | **Dev**, matching the cluster. This is what produces an auth host like `idmatic-wqpdw11s.auth.us.pontive-dev.com` (`{project-slug}.auth.{region}.pontive-dev.com` for a production instance; a non-production one is `{project-slug}-{instance-slug}.auth.{region}.…`) |
+| Which **Pontive instance** it points at | the project's production instance or a non-production one | **Must be production.** See below |
 
 They are genuinely independent — nothing stops demo pods on a nonprod cluster from authenticating against production Pontive, since the auth host is reached over the public internet like any other.
 
-**The project must be in production mode, and this is not a detail.** This repo's README states the case the demo exists to make: the refresh cookie is withheld *"for a production project, whose cookies are `SameSite=Lax`"*. That is precisely the condition `authProxyRewrites` answers.
+**It must be the production instance, and this is not a detail.** This repo's README states the case the demo exists to make: the refresh cookie is withheld *"for a production instance, whose cookies are `SameSite=Lax`"*. That is precisely the condition `authProxyRewrites` answers.
 
-Point the demo at a **sandbox** project and the failure is silent and inverted: the cookie is not `SameSite=Lax`, the third-party cookie problem never bites, sign-in works — and it would have worked without the proxy. The demo would look like a success while demonstrating nothing, and the first person to discover otherwise would be a customer copying the pattern into their own production project. A demo that cannot fail for the right reason is not evidence.
+Point the demo at a **non-production** instance and the failure is silent and inverted: the cookie is not `SameSite=Lax`, the third-party cookie problem never bites, sign-in works — and it would have worked without the proxy. The demo would look like a success while demonstrating nothing, and the first person to discover otherwise would be a customer copying the pattern into their own production instance. A demo that cannot fail for the right reason is not evidence.
 
-There is already a project to consider rather than create: `.env.example` points at `proj_06fghx60hnrcxftadsj44e0pj8` with app `app_06fgq637wsxt7610cfnxxthy08` on `pontive-dev`. If that becomes the demo's project, step 1 is confirming its mode and adding the deployed origin to its allowlist — not creating anything.
+There is already a project to consider rather than create: `.env.example` points at the `idmatic-wqpdw11s` auth host with app `app_06fgq637wsxt7610cfnxxthy08` on `pontive-dev`. If that becomes the demo's project, step 1 is confirming the auth host is its production instance and adding the deployed origin to its allowlist — not creating anything.
 
 **Whichever way these go, §5.1 applies:** all three land in build args baked into the image, so changing one later is a rebuild and a re-promotion, not a manifest edit.
 
@@ -233,7 +233,7 @@ Decided 2026-09-07. Developers need to read the code, so every demo repo is publ
 
 ### 6.1 Nothing in a demo is secret
 
-Every value the app consumes is public by construction: `NEXT_PUBLIC_PONTIVE_APP_ID`, `NEXT_PUBLIC_PONTIVE_PROJECT_ID`, `NEXT_PUBLIC_PONTIVE_API_BASE_URL` and `NEXT_PUBLIC_PONTIVE_AUTH_DOMAIN` are inlined into the browser bundle and readable in devtools regardless. `PONTIVE_AUTH_HOST` is not `NEXT_PUBLIC_` for a different reason — the browser has no use for the auth server's real hostname, and keeping it out of the bundle is what makes `/__auth` the only path the app knows. It is not a credential; it is a public DNS name.
+Every value the app consumes is public by construction: `NEXT_PUBLIC_PONTIVE_APP_ID`, `NEXT_PUBLIC_PONTIVE_API_BASE_URL` and `NEXT_PUBLIC_PONTIVE_AUTH_DOMAIN` are inlined into the browser bundle and readable in devtools regardless. `PONTIVE_AUTH_HOST` is not `NEXT_PUBLIC_` for a different reason — the browser has no use for the auth server's real hostname, and keeping it out of the bundle is what makes `/__auth` the only path the app knows. It is not a credential; it is a public DNS name.
 
 The security boundary is not the repo. It is the app's **allowed-origin list** plus the auth server's own checks. Publishing the app id changes nothing an attacker could not already read.
 

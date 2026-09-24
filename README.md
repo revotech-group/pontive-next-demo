@@ -8,7 +8,7 @@ the app's own origin.
 A browser treats a cookie as first-party only when it comes from the origin the
 page is on. An app talking to an auth server on another hostname is cross-site,
 so the refresh cookie is a third-party cookie — blocked outright in Safari, and
-withheld everywhere for a production project, whose cookies are `SameSite=Lax`.
+withheld everywhere for a production instance, whose cookies are `SameSite=Lax`.
 The symptom is a sign-in that appears to work and then reports *"no auth flow in
 progress"* on the very next request.
 
@@ -37,7 +37,7 @@ at the path rather than the hostname:
 
 No DNS record, no certificate, no CDN configuration. A rewrite to an external
 destination sends the destination's Host upstream, which is what the auth server
-needs to resolve which project it is answering as — so there is no header to
+needs to resolve which instance it is answering as — so there is no header to
 configure and nothing to get wrong.
 
 ## Server rendering, and why it is no longer a gotcha
@@ -66,7 +66,7 @@ npm run dev
 ```
 
 
-Two things have to be true of the project this app points at, or sign-in fails
+Two things have to be true of the instance this app points at, or sign-in fails
 with a 403 before anything interesting happens:
 
 1. **The origin must be registered on the app.** `http://localhost:3000` for
@@ -92,7 +92,6 @@ environment variables:
 | `PONTIVE_AUTH_HOST` | the auth server's hostname | no — build-time only |
 | `NEXT_PUBLIC_PONTIVE_AUTH_DOMAIN` | `/__auth` | yes |
 | `NEXT_PUBLIC_PONTIVE_APP_ID` | the app id | yes |
-| `NEXT_PUBLIC_PONTIVE_PROJECT_ID` | the project id — not read by the API client any more (the token names the project); kept only until the framework packages are rebuilt without it | yes |
 | `NEXT_PUBLIC_PONTIVE_API_BASE_URL` | the management gateway, e.g. `https://api.us.pontive.com`; the SDK calls it from the browser with the user's bearer token | yes |
 
 Then register the deployment's URL as an allowed origin on the app. That one
@@ -114,6 +113,6 @@ curl -i localhost:3000/__auth/auth/v1/apps/$APP_ID/branding.css   # 200 text/css
 curl -i -X POST localhost:3000/__auth/oauth2/token                # 400 grant_type is required
 ```
 
-A 200 stylesheet means the project resolved, which only happens if the auth
+A 200 stylesheet means the instance resolved, which only happens if the auth
 server received its own hostname as Host. HTML back instead means the rewrite
 did not match and Next served the app itself.

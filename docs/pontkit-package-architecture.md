@@ -406,12 +406,16 @@ Steps 1–4 are done. Steps 1–2 ran ahead of 3–4, which was safe only becaus
 
 Not in the first draft at all, and it is the change with the widest blast radius in this work.
 
-`@pontive/pontkit-core`'s fetch wrapper sends a project header on every call to `api.*`. Renaming the element vocabulary without renaming that header leaves `saasbase` in the most literally public surface the platform has — and `pontive-spec` had **already specified `X-Pontive-Project-ID`** in five places (`02-project-management.md`, `03-user-management.md`, `15`, `16`), so the implementation was the thing lagging, not the spec.
+`@pontive/pontkit-core`'s fetch wrapper sent a project header on every call to `api.*` at the time of this rename. Renaming the element vocabulary without renaming that header leaves `saasbase` in the most literally public surface the platform has — and `pontive-spec` had **already specified `X-Pontive-Project-ID`** in five places (`02-project-management.md`, `03-user-management.md`, `15`, `16`), so the implementation was the thing lagging, not the spec.
 
 | Header | Was | Now |
 |---|---|---|
-| Project scope, sent by browsers and SDKs to `api.*` | `X-Saasbase-Project-ID` | `X-Pontive-Project-ID` |
+| Instance scope, sent by server-side SDKs and the dashboard to `api.*` | `X-Saasbase-Project-ID` | `X-Pontive-Instance-ID` |
 | Serialized `RequestContext`, service to service | `X-Saasbase-Context` | `X-Pontive-Context` |
+
+**Since the Project → Instance restructure the scope header names an instance, not a project** (`X-Pontive-Project-ID` no longer exists). A project is now only the customer-facing grouping (name, slug, region); the data-isolated unit every regional `api.*` call is scoped to is one of its instances — the single `production` instance or a named `non_production` one (`dev`, `staging`, …). Each instance has its own users, apps, auth domain (`{project-slug}.auth.{region}.pontive.app` for production, `{project-slug}-{instance-slug}.auth.{region}.pontive.dev` otherwise) and row-isolated data, so the header carries an `inst_…` id; its constant is `middlewares.InstanceIDHeader` in `pontive-core`.
+
+`@pontive/pontkit-core` itself no longer sends the header: a browser's access token is issued by the instance's own auth domain, and the gateway resolves the instance from that issuer — a header naming any other instance would be refused. The header is for callers whose credential is not bound to one instance (the dashboard, operator tooling).
 
 Nine repos. The header is **read** in `saasbase-core/pkg/http/middlewares/{project,context}.go` — the shared library every service embeds — which is what makes this a release rather than a rename. It is **sent** by `pontkit-core` and `saasbase-dashboard`, and **allowlisted or documented** in `auth-api`, `management-api`, `platform-management-api` and `go-core`.
 
