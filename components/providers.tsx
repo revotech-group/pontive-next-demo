@@ -16,7 +16,6 @@ import { Provider } from "./pontkit";
 const env: EnvConfig = {
   domain: process.env.NEXT_PUBLIC_PONTIVE_AUTH_DOMAIN!,
   appId: process.env.NEXT_PUBLIC_PONTIVE_APP_ID!,
-  projectId: process.env.NEXT_PUBLIC_PONTIVE_PROJECT_ID!,
   apiBaseUrl: process.env.NEXT_PUBLIC_PONTIVE_API_BASE_URL!,
   signinUrl: "/signin",
   signupUrl: "/signup",
