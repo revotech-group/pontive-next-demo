@@ -7,6 +7,7 @@ Scope: where to host the per-framework PontKit demos (`pontive-next-demo`, `pont
 
 | Date | Change |
 |---|---|
+| 2026-09-26 | **The demo now reads the session on the server** (§1). `/server` is a server component rendered as the signed-in user, via `@pontive/pontkit-nextjs/server`'s browser mode, with a `proxy.ts` in front of it. So the image needs `PONTIVE_AUTH_HOST` at runtime as well as at build (the issuer the server verifies against), and "no server-side data access at all" is no longer true. Nothing else in the hosting decision changes: it was already a server, not a static export. |
 | 2026-09-08 (8) | **DNS created** (§5). The wildcard ALIAS is in place, so every prerequisite outside the repos is now done. Notes a pre-existing problem found on the way: `platform-core-grpc.dev.tribify.io` is a dangling CNAME to an ALB replaced on 2026-08-30 — the reason these records are ALIAS, not CNAME. |
 | 2026-09-08 (7) | **Certificate issued; DNS is manual** (§5). The wildcard `*.demos.pontive-dev.com` certificate is in place, so no placeholders remain. The cluster runs no external-dns, so hostnames resolve only once someone creates a record — recommended as one wildcard ALIAS, which keeps "adding a demo touches only the gitops repo" true. Notes that neither wildcard covers the apex the §4 landing page would sit on. |
 | 2026-09-08 (6) | **Verified against the cluster** (§3.2). `IngressClassParams/alb-shared` carries `group.name: nonprod-shared`, so the demos join the ALB that already exists and add no load balancer. Corrects a claim made from assumption in pm-4: a plain `alb` IngressClass **does** exist on this cluster. |
@@ -30,7 +31,7 @@ Scope: where to host the per-framework PontKit demos (`pontive-next-demo`, `pont
 
 Measured against this repo, not assumed.
 
-The demo has **no server-side data access at all** — no `cookies()`, no `headers()`, no route handlers, no server `fetch`. Every page renders statically. The only server-side thing in the entire application is one rewrite:
+When this was written the demo had **no server-side data access at all** — no `cookies()`, no `headers()`, no route handlers, no server `fetch`; every page rendered statically. Since 2026-09-26 one page, `/server`, reads the session on the server (see the revision history). The one server-side thing the hosting decision turns on is still a rewrite:
 
 ```js
 // next.config.mjs

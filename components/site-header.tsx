@@ -8,6 +8,7 @@ import { ThemeToggle } from "@/components/theme-toggle";
 const links = [
   { href: "/", label: "Overview" },
   { href: "/profile", label: "Account" },
+  { href: "/server", label: "Server" },
 ];
 
 export function SiteHeader() {
