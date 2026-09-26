@@ -58,6 +58,30 @@ there is nothing for a server to do with them beyond rendering the placeholder
 they hydrate into — but that is a statement about where they belong, not a
 workaround for a crash.
 
+## Reading the session on the server
+
+`/server` is a server component rendered as the signed-in user:
+
+```ts
+// lib/pontive.ts
+export const pontive = () => pontiveAuth({
+  issuer: `https://${process.env.PONTIVE_AUTH_HOST}`,
+  clientId: process.env.NEXT_PUBLIC_PONTIVE_APP_ID!,
+});
+
+// app/server/page.tsx
+const session = await pontive().auth();
+```
+
+No client secret, so the SDK runs in browser mode: the widgets sign the user
+in and are the only thing that refreshes. Through the `/__auth` proxy the auth
+server keeps an HttpOnly access-token cookie on this origin; `auth()` verifies
+it, and `proxy.ts` sends a signed-in page load whose token has lapsed through
+the auth server's session handshake and straight back. The server never spends
+the refresh token, so refresh-token rotation never sees it spent twice.
+
+`PONTIVE_AUTH_HOST` is read at runtime for this, not only at build.
+
 ## Running it
 
 ```bash

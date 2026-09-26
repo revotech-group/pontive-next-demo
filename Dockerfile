@@ -78,6 +78,17 @@ ENV NODE_ENV=production \
     PORT=3000 \
     HOSTNAME=0.0.0.0
 
+# The server reads these at runtime too, not only the build: /server verifies
+# the access-token cookie against the issuer's signing keys, and PONTIVE_AUTH_HOST
+# names that issuer. It is already baked into the routes manifest above, so
+# carrying it here exposes nothing new.
+ARG PONTIVE_AUTH_HOST
+ARG NEXT_PUBLIC_PONTIVE_APP_ID
+ARG NEXT_PUBLIC_PONTIVE_AUTH_DOMAIN=/__auth
+ENV PONTIVE_AUTH_HOST=${PONTIVE_AUTH_HOST} \
+    NEXT_PUBLIC_PONTIVE_APP_ID=${NEXT_PUBLIC_PONTIVE_APP_ID} \
+    NEXT_PUBLIC_PONTIVE_AUTH_DOMAIN=${NEXT_PUBLIC_PONTIVE_AUTH_DOMAIN}
+
 RUN addgroup -S -g 1001 nodejs && adduser -S -u 1001 -G nodejs nextjs
 
 # `server.js` and its traced dependencies, then the static assets standalone
