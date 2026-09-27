@@ -1,12 +1,19 @@
 import Link from "next/link";
 
+import { ORGANIZATION_ERROR_PARAM } from "@pontive/pontkit-nextjs/server";
+
 import { pontive } from "@/lib/pontive";
 
 // Read per request: this page is the signed-in user's, not a static one.
 export const dynamic = "force-dynamic";
 
-export default async function ServerPage() {
+export default async function ServerPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
   const session = await pontive().auth();
+  const organizationError = (await searchParams)[ORGANIZATION_ERROR_PARAM];
   const renderedAt = new Date().toISOString();
 
   return (
@@ -40,6 +47,50 @@ export default async function ServerPage() {
             <p>
               Rendered at <code className="pv-code">{renderedAt}</code>.
             </p>
+          </div>
+        </div>
+
+      ) : null}
+
+      {session ? (
+        <div className="pv-card pv-session">
+          <div className="pv-session__body">
+            <span className="pv-kicker">Organization</span>
+            {session.organization ? (
+              <>
+                <h3>{session.organization.id}</h3>
+                <p>
+                  Role <code className="pv-code">{session.organization.role ?? "none"}</code>
+                  {session.organization.roles.length > 1 ? (
+                    <>
+                      {" "}of <code className="pv-code">{session.organization.roles.join(", ")}</code>
+                    </>
+                  ) : null}
+                  ; permissions{" "}
+                  <code className="pv-code">
+                    {session.organization.permissions.length ? session.organization.permissions.join(", ") : "none"}
+                  </code>
+                  . Read from the same access token: the auth server re-resolves them on every refresh.
+                </p>
+              </>
+            ) : (
+              <p>
+                This session acts in no organization: a B2C user, or one with several organizations whose app has not
+                picked one. Nobody is asked to choose at sign-in.
+              </p>
+            )}
+            {organizationError ? (
+              <p className="pv-status">
+                Switch refused: <code className="pv-code">{String(organizationError)}</code>. The session is unchanged.
+              </p>
+            ) : null}
+            <form action="/api/auth/switch-organization" method="get" className="pv-inline-form">
+              <input type="hidden" name="returnTo" value="/server" />
+              <input name="organization_id" placeholder="org_…" required className="pv-input" />
+              <button type="submit" className="pv-btn">
+                Switch organization
+              </button>
+            </form>
           </div>
         </div>
       ) : (
