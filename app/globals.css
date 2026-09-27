@@ -861,3 +861,23 @@ body.pv-body {
     animation-duration: 0.01ms !important;
   }
 }
+
+/* The organization switch on /server: an id and a button, side by side. */
+.pv-inline-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+
+.pv-input {
+  flex: 1 1 14rem;
+  min-width: 0;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--pv-line-strong);
+  border-radius: 8px;
+  background: var(--pv-surface);
+  color: var(--pv-ink);
+  font: inherit;
+  font-size: 0.875rem;
+}
