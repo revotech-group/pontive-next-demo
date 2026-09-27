@@ -60,13 +60,7 @@ export default async function ServerPage({
               <>
                 <h3>{session.organization.id}</h3>
                 <p>
-                  Role <code className="pv-code">{session.organization.role ?? "none"}</code>
-                  {session.organization.roles.length > 1 ? (
-                    <>
-                      {" "}of <code className="pv-code">{session.organization.roles.join(", ")}</code>
-                    </>
-                  ) : null}
-                  ; permissions{" "}
+                  Roles <code className="pv-code">{session.organization.roles.join(", ") || "none"}</code>; permissions{" "}
                   <code className="pv-code">
                     {session.organization.permissions.length ? session.organization.permissions.join(", ") : "none"}
                   </code>
