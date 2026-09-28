@@ -23,4 +23,5 @@ export {
   SignedOut,
   AccountMenu,
   AccountSettings,
+  OrganizationSwitcher,
 } from "@pontive/pontkit-nextjs";
