@@ -89,7 +89,6 @@ npm install
 npm run dev
 ```
 
-
 Two things have to be true of the instance this app points at, or sign-in fails
 with a 403 before anything interesting happens:
 
