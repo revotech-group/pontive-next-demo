@@ -406,21 +406,24 @@ Steps 1–4 are done. Steps 1–2 ran ahead of 3–4, which was safe only becaus
 
 Not in the first draft at all, and it is the change with the widest blast radius in this work.
 
-`@pontive/pontkit-core`'s fetch wrapper sends a project header on every call to `api.*`. Renaming the element vocabulary without renaming that header leaves `saasbase` in the most literally public surface the platform has — and `pontive-spec` had **already specified `X-Pontive-Project-ID`** in five places (`02-project-management.md`, `03-user-management.md`, `15`, `16`), so the implementation was the thing lagging, not the spec.
+`@pontive/pontkit-core`'s fetch wrapper sent a project header on every call to `api.*` at the time of this rename. Renaming the element vocabulary without renaming that header leaves `saasbase` in the most literally public surface the platform has — and `pontive-spec` had **already specified `X-Pontive-Project-ID`** in five places (`02-project-management.md`, `03-user-management.md`, `15`, `16`), so the implementation was the thing lagging, not the spec.
 
 | Header | Was | Now |
 |---|---|---|
-| Project scope, sent by browsers and SDKs to `api.*` | `X-Saasbase-Project-ID` | `X-Pontive-Project-ID` |
-| Serialized `RequestContext`, service to service | `X-Saasbase-Context` | removed (see below) |
+| Instance scope, sent by server-side SDKs and the dashboard to `api.*` | `X-Saasbase-Project-ID` | `X-Pontive-Instance-ID` |
+| Serialized `RequestContext`, service to service | `X-Saasbase-Context` | `X-Pontive-Context` |
 
-Nine repos. The project header is **read** in `pontive-core/pkg/http/middlewares/project.go` — the shared library every service embeds — which is what makes this a release rather than a rename. It is **sent** by `pontkit-core` and `pontive-dashboard`, and **allowlisted or documented** in `auth-api`, `management-api` and `platform-management-api`. It is a constant in `pontive-core/pkg/http/middlewares/headers.go` rather than a literal at each use site, so the next person to touch it can find the others.
+**Since the Project → Instance restructure the scope header names an instance, not a project** (`X-Pontive-Project-ID` no longer exists). A project is now only the customer-facing grouping (name, slug, region); the data-isolated unit every regional `api.*` call is scoped to is one of its instances — the single `production` instance or a named `non_production` one (`dev`, `staging`, …). Each instance has its own users, apps, auth domain (`{project-slug}.auth.{region}.pontive.app` for production, `{project-slug}-{instance-slug}.auth.{region}.pontive.dev` otherwise) and row-isolated data, so the header carries an `inst_…` id; its constant is `middlewares.InstanceIDHeader` in `pontive-core`.
 
-**The context header is gone.** Nothing ever sent it, and `ContextMiddleware` trusted it wholesale — host, project and identity — on public traffic, which let an external caller choose the project and principal a request ran as. The request context now travels between services only as gRPC metadata; no HTTP header carries it in either direction.
+`@pontive/pontkit-core` itself no longer sends the header: a browser's access token is issued by the instance's own auth domain, and the gateway resolves the instance from that issuer — a header naming any other instance would be refused. The header is for callers whose credential is not bound to one instance (the dashboard, operator tooling).
 
-pontive-core's unused `pkg/http` client, which sent the same serialized context as `X-Truuth-Context`, is deleted with it.
+Nine repos. The header is **read** in `saasbase-core/pkg/http/middlewares/{project,context}.go` — the shared library every service embeds — which is what makes this a release rather than a rename. It is **sent** by `pontkit-core` and `saasbase-dashboard`, and **allowlisted or documented** in `auth-api`, `management-api`, `platform-management-api` and `go-core`.
 
-One thing deliberately left alone:
+Both names are now constants in `saasbase-core/pkg/http/middlewares/headers.go` rather than literals at each use site, so the next person to touch one can find the others.
 
+Two things deliberately left alone:
+
+- **`pkg/http/http_client.go` emits `X-Truuth-Context`**, not the context header the middleware reads. That mismatch predates this work and is harmless today because nothing in the platform sets the context header. Fixing it is a behaviour change, not a rename.
 - **`go-core`** is a stale copy of the same middleware that no service imports. Its headers were renamed for consistency only, so that nobody reintroduces the old names from it.
 
 ## 14. Pre-existing bugs this surfaced

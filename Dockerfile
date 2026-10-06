@@ -51,20 +51,18 @@ COPY . .
 # .next/routes-manifest.json, so a runtime secret would simply never be read.
 ARG PONTIVE_AUTH_HOST
 ARG NEXT_PUBLIC_PONTIVE_APP_ID
-ARG NEXT_PUBLIC_PONTIVE_PROJECT_ID
 ARG NEXT_PUBLIC_PONTIVE_API_BASE_URL
 ARG NEXT_PUBLIC_PONTIVE_AUTH_DOMAIN=/__auth
 
 ENV PONTIVE_AUTH_HOST=${PONTIVE_AUTH_HOST} \
     NEXT_PUBLIC_PONTIVE_APP_ID=${NEXT_PUBLIC_PONTIVE_APP_ID} \
-    NEXT_PUBLIC_PONTIVE_PROJECT_ID=${NEXT_PUBLIC_PONTIVE_PROJECT_ID} \
     NEXT_PUBLIC_PONTIVE_API_BASE_URL=${NEXT_PUBLIC_PONTIVE_API_BASE_URL} \
     NEXT_PUBLIC_PONTIVE_AUTH_DOMAIN=${NEXT_PUBLIC_PONTIVE_AUTH_DOMAIN} \
     NEXT_TELEMETRY_DISABLED=1
 
 # Fail here rather than shipping an image that builds cleanly and cannot sign in.
 RUN for v in PONTIVE_AUTH_HOST NEXT_PUBLIC_PONTIVE_APP_ID \
-             NEXT_PUBLIC_PONTIVE_PROJECT_ID NEXT_PUBLIC_PONTIVE_API_BASE_URL; do \
+             NEXT_PUBLIC_PONTIVE_API_BASE_URL; do \
       eval "val=\$$v"; \
       [ -n "$val" ] || { echo "missing required build arg: $v" >&2; exit 1; }; \
     done
@@ -79,6 +77,17 @@ ENV NODE_ENV=production \
     NEXT_TELEMETRY_DISABLED=1 \
     PORT=3000 \
     HOSTNAME=0.0.0.0
+
+# The server reads these at runtime too, not only the build: /server verifies
+# the access-token cookie against the issuer's signing keys, and PONTIVE_AUTH_HOST
+# names that issuer. It is already baked into the routes manifest above, so
+# carrying it here exposes nothing new.
+ARG PONTIVE_AUTH_HOST
+ARG NEXT_PUBLIC_PONTIVE_APP_ID
+ARG NEXT_PUBLIC_PONTIVE_AUTH_DOMAIN=/__auth
+ENV PONTIVE_AUTH_HOST=${PONTIVE_AUTH_HOST} \
+    NEXT_PUBLIC_PONTIVE_APP_ID=${NEXT_PUBLIC_PONTIVE_APP_ID} \
+    NEXT_PUBLIC_PONTIVE_AUTH_DOMAIN=${NEXT_PUBLIC_PONTIVE_AUTH_DOMAIN}
 
 RUN addgroup -S -g 1001 nodejs && adduser -S -u 1001 -G nodejs nextjs
 

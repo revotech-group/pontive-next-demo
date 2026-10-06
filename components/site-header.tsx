@@ -2,12 +2,13 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { SignedIn, SignedOut, AccountMenu } from "@/components/pontkit";
+import { SignedIn, SignedOut, AccountMenu, OrganizationSwitcher } from "@/components/pontkit";
 import { ThemeToggle } from "@/components/theme-toggle";
 
 const links = [
   { href: "/", label: "Overview" },
   { href: "/profile", label: "Account" },
+  { href: "/server", label: "Server" },
 ];
 
 export function SiteHeader() {
@@ -51,6 +52,11 @@ export function SiteHeader() {
             </Link>
           </SignedOut>
           <SignedIn>
+            {/* The organization the session acts in, and the ones it can move
+                to. Hidden for a user with no organizations. reloadOnSwitch,
+                because /server renders from the access-token cookie and must
+                be re-requested to show the new organization. */}
+            <OrganizationSwitcher reloadOnSwitch />
             <AccountMenu accountSettingsPath="/profile" />
           </SignedIn>
         </div>
