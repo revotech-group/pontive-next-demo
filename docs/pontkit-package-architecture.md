@@ -411,15 +411,16 @@ Not in the first draft at all, and it is the change with the widest blast radius
 | Header | Was | Now |
 |---|---|---|
 | Project scope, sent by browsers and SDKs to `api.*` | `X-Saasbase-Project-ID` | `X-Pontive-Project-ID` |
-| Serialized `RequestContext`, service to service | `X-Saasbase-Context` | `X-Pontive-Context` |
+| Serialized `RequestContext`, service to service | `X-Saasbase-Context` | removed (see below) |
 
-Nine repos. The header is **read** in `saasbase-core/pkg/http/middlewares/{project,context}.go` — the shared library every service embeds — which is what makes this a release rather than a rename. It is **sent** by `pontkit-core` and `saasbase-dashboard`, and **allowlisted or documented** in `auth-api`, `management-api`, `platform-management-api` and `go-core`.
+Nine repos. The project header is **read** in `pontive-core/pkg/http/middlewares/project.go` — the shared library every service embeds — which is what makes this a release rather than a rename. It is **sent** by `pontkit-core` and `pontive-dashboard`, and **allowlisted or documented** in `auth-api`, `management-api` and `platform-management-api`. It is a constant in `pontive-core/pkg/http/middlewares/headers.go` rather than a literal at each use site, so the next person to touch it can find the others.
 
-Both names are now constants in `saasbase-core/pkg/http/middlewares/headers.go` rather than literals at each use site, so the next person to touch one can find the others.
+**The context header is gone.** Nothing ever sent it, and `ContextMiddleware` trusted it wholesale — host, project and identity — on public traffic, which let an external caller choose the project and principal a request ran as. The request context now travels between services only as gRPC metadata; no HTTP header carries it in either direction.
 
-Two things deliberately left alone:
+pontive-core's unused `pkg/http` client, which sent the same serialized context as `X-Truuth-Context`, is deleted with it.
 
-- **`pkg/http/http_client.go` emits `X-Truuth-Context`**, not the context header the middleware reads. That mismatch predates this work and is harmless today because nothing in the platform sets the context header. Fixing it is a behaviour change, not a rename.
+One thing deliberately left alone:
+
 - **`go-core`** is a stale copy of the same middleware that no service imports. Its headers were renamed for consistency only, so that nobody reintroduces the old names from it.
 
 ## 14. Pre-existing bugs this surfaced
