@@ -92,10 +92,11 @@ npm run dev
 Two things have to be true of the instance this app points at, or sign-in fails
 with a 403 before anything interesting happens:
 
-1. **The origin must be registered on the app.** `http://localhost:3000` for
-   local development, and the deployed URL for Vercel. Without it auth-api
-   answers `{"error":{"code":"ForbiddenError","message":"origin is not allowed
-   for this app"}}`.
+1. **The origin must be registered on the app.** `https://localhost:3000` for
+   local development — `npm run dev` serves HTTPS (`--experimental-https`), and
+   `http://` would be a different origin — and the deployed URL for Vercel.
+   Without it auth-api answers `{"error":{"code":"ForbiddenError","message":"origin
+   is not allowed for this app"}}`.
 2. **A `localhost` origin must not be blocked at the edge.** The dev
    deployment's WAF currently refuses any flow-start whose `origin_url` has a
    `localhost` or `127.0.0.1` host, with a CloudFront "Request blocked" page
@@ -132,8 +133,8 @@ Against a running instance, these two say whether the rewrite and the Host are
 both right:
 
 ```bash
-curl -i localhost:3000/__auth/auth/v1/apps/$APP_ID/branding.css   # 200 text/css
-curl -i -X POST localhost:3000/__auth/oauth2/token                # 400 grant_type is required
+curl -ik https://localhost:3000/__auth/auth/v1/apps/$APP_ID/branding.css   # 200 text/css
+curl -ik -X POST https://localhost:3000/__auth/oauth2/token                # 400 grant_type is required
 ```
 
 A 200 stylesheet means the instance resolved, which only happens if the auth

@@ -189,7 +189,7 @@ The cost is one allowed-origin registration per demo on the shared Pontive app. 
 
 Any per-commit preview URL changes per deployment and will not be on the app's origin allowlist, so auth-api answers `{"error":{"code":"ForbiddenError","message":"origin is not allowed for this app"}}` and the demo appears broken. Previews are for reviewing UI. **Only the pinned custom domains are demos**, and only those go in documentation, sales decks or README links.
 
-The same trap already applies locally and is documented in this repo's README: `http://localhost:3000` must be registered, and the dev deployment's WAF must not block `localhost` flow-starts.
+The same trap already applies locally and is documented in this repo's README: `https://localhost:3000` must be registered, and the dev deployment's WAF must not block `localhost` flow-starts.
 
 ## 5. What to do
 
