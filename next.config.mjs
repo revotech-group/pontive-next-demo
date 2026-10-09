@@ -10,7 +10,7 @@ import { authProxyRewrites } from "@pontive/pontkit-nextjs/server";
  * which is what a production project gets. The symptom is a sign-in that appears
  * to work and then reports "no auth flow in progress" on the very next request.
  *
- * These rewrites put `/__auth/auth/v1/*` and `/__auth/oauth2/*` on this app's own
+ * These rewrites put `/__pontive/auth/v1/*` and `/__pontive/oauth2/*` on this app's own
  * origin, so every cookie the auth server sets is first-party. No DNS record, no
  * certificate, no CDN configuration — a rewrite to an external destination sends
  * the destination's Host upstream, which is exactly what the auth server needs to

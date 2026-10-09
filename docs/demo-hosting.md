@@ -40,9 +40,9 @@ async rewrites() {
 }
 ```
 
-That rewrite is not incidental. It **is** the demo: `/__auth/auth/v1/*` and `/__auth/oauth2/*` are served from the app's own origin so the auth server's refresh cookie is first-party and survives `SameSite=Lax` and Safari's third-party blocking. Without it, sign-in appears to work and then reports *"no auth flow in progress"* on the next request.
+That rewrite is not incidental. It **is** the demo: `/__pontive/auth/v1/*` and `/__pontive/oauth2/*` are served from the app's own origin so the auth server's refresh cookie is first-party and survives `SameSite=Lax` and Safari's third-party blocking. Without it, sign-in appears to work and then reports *"no auth flow in progress"* on the next request.
 
-So the hosting question is not "where do I put a static site". It is: **where can a demo serve its own origin and proxy `/__auth/*` upstream, in the way that framework's own users would do it.**
+So the hosting question is not "where do I put a static site". It is: **where can a demo serve its own origin and proxy `/__pontive/*` upstream, in the way that framework's own users would do it.**
 
 ### 1.1 Static export is not available
 
@@ -59,8 +59,8 @@ The idiomatic proxy is a server feature everywhere, which means this generalises
 | Demo | Idiomatic proxy | Needs a server |
 |---|---|---|
 | Next | `rewrites()` in `next.config.mjs` via `authProxyRewrites()` | yes |
-| Nuxt | `routeRules: { '/__auth/**': { proxy } }` (Nitro) | yes |
-| SvelteKit | `+server.ts` handler under `/__auth` | yes |
+| Nuxt | `routeRules: { '/__pontive/**': { proxy } }` (Nitro) | yes |
+| SvelteKit | `+server.ts` handler under `/__pontive` | yes |
 | React (Vite SPA) | dev: `server.proxy`; **prod: nothing** — platform config | no |
 | Angular | dev: `proxy.conf.json`; **prod: nothing** unless SSR | no, unless SSR |
 
@@ -198,7 +198,7 @@ The same trap already applies locally and is documented in this repo's README: `
 3. **Done** — the wildcard `*.demos.pontive-dev.com` certificate is issued and in the Ingress. Merge the `platform-gitops` branch.
 3b. **Done** — `*.demos.pontive-dev.com` ALIAS A onto the shared ALB, in the `pontive-dev.com` public zone `Z03889082EN3VVKF7S2C1`. The cluster runs no external-dns, so this was created by hand and no future demo needs another.
 4. Run the promotion workflow in `pontive-demos-ci` against the demo's commit SHA; Argo does the rest.
-5. Register `https://next.demos.pontive-dev.com` as an allowed origin on the demo app. Verify against the deployed URL — a 200 `text/css` from `/__auth/auth/v1/apps/$APP_ID/branding.css` proves the rewrite and the upstream `Host` are both right. HTML back means the rewrite did not match.
+5. Register `https://next.demos.pontive-dev.com` as an allowed origin on the demo app. Verify against the deployed URL — a 200 `text/css` from `/__pontive/auth/v1/apps/$APP_ID/branding.css` proves the rewrite and the upstream `Host` are both right. HTML back means the rewrite did not match.
 6. Repeat for `pontive-react-demo`, and resolve the production-proxy gap for Vite SPAs (§1.2) while doing it — whatever that demo does becomes the answer `@pontive/pontkit-loader`'s docs give every SPA customer.
 7. Build the landing page at the apex last, once there are at least two demos to link.
 
@@ -234,7 +234,7 @@ Decided 2026-09-07. Developers need to read the code, so every demo repo is publ
 
 ### 6.1 Nothing in a demo is secret
 
-Every value the app consumes is public by construction: `NEXT_PUBLIC_PONTIVE_APP_ID`, `NEXT_PUBLIC_PONTIVE_API_BASE_URL` and `NEXT_PUBLIC_PONTIVE_AUTH_DOMAIN` are inlined into the browser bundle and readable in devtools regardless. `PONTIVE_AUTH_HOST` is not `NEXT_PUBLIC_` for a different reason — the browser has no use for the auth server's real hostname, and keeping it out of the bundle is what makes `/__auth` the only path the app knows. It is not a credential; it is a public DNS name.
+Every value the app consumes is public by construction: `NEXT_PUBLIC_PONTIVE_APP_ID`, `NEXT_PUBLIC_PONTIVE_API_BASE_URL` and `NEXT_PUBLIC_PONTIVE_AUTH_DOMAIN` are inlined into the browser bundle and readable in devtools regardless. `PONTIVE_AUTH_HOST` is not `NEXT_PUBLIC_` for a different reason — the browser has no use for the auth server's real hostname, and keeping it out of the bundle is what makes `/__pontive` the only path the app knows. It is not a credential; it is a public DNS name.
 
 The security boundary is not the repo. It is the app's **allowed-origin list** plus the auth server's own checks. Publishing the app id changes nothing an attacker could not already read.
 

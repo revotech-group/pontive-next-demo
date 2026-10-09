@@ -4,7 +4,7 @@ import type { EnvConfig } from "@pontive/pontkit-nextjs";
 import { Provider } from "./pontkit";
 
 /**
- * `domain` is a PATH, not a hostname — `/__auth`, which `next.config.mjs`
+ * `domain` is a PATH, not a hostname — `/__pontive`, which `next.config.mjs`
  * rewrites onto the auth server. That is the whole point of the integration:
  * the browser only ever talks to this app's own origin, so the cookies the auth
  * server sets are first-party and survive `SameSite=Lax`.

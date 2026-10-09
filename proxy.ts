@@ -14,5 +14,5 @@ export function proxy(req: NextRequest) {
 
 export const config = {
   // Not the auth proxy itself, Next's internals or static files.
-  matcher: ["/((?!__auth|_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|css|js|map|txt)$).*)"],
+  matcher: ["/((?!__pontive|_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|css|js|map|txt)$).*)"],
 };

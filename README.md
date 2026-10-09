@@ -27,12 +27,12 @@ export default {
 };
 ```
 
-`/__auth/auth/v1/*` and `/__auth/oauth2/*` are now served from this app's own
+`/__pontive/auth/v1/*` and `/__pontive/oauth2/*` are now served from this app's own
 origin, so every cookie the auth server sets is first-party. The SDK is pointed
 at the path rather than the hostname:
 
 ```ts
-<Provider env={{ domain: "/__auth", appId, ... }}>
+<Provider env={{ domain: "/__pontive", appId, ... }}>
 ```
 
 No DNS record, no certificate, no CDN configuration. A rewrite to an external
@@ -74,7 +74,7 @@ const session = await pontive().auth();
 ```
 
 No client secret, so the SDK runs in browser mode: the widgets sign the user
-in and are the only thing that refreshes. Through the `/__auth` proxy the auth
+in and are the only thing that refreshes. Through the `/__pontive` proxy the auth
 server keeps an HttpOnly access-token cookie on this origin; `auth()` verifies
 it, and `proxy.ts` sends a signed-in page load whose token has lapsed through
 the auth server's session handshake and straight back. The server never spends
@@ -114,7 +114,7 @@ environment variables:
 | Variable | Value | Reaches the browser |
 |---|---|---|
 | `PONTIVE_AUTH_HOST` | the auth server's hostname | no — build-time only |
-| `NEXT_PUBLIC_PONTIVE_AUTH_DOMAIN` | `/__auth` | yes |
+| `NEXT_PUBLIC_PONTIVE_AUTH_DOMAIN` | `/__pontive` | yes |
 | `NEXT_PUBLIC_PONTIVE_APP_ID` | the app id | yes |
 | `NEXT_PUBLIC_PONTIVE_API_BASE_URL` | the management gateway, e.g. `https://api.us.pontive.com`; the SDK calls it from the browser with the user's bearer token | yes |
 
@@ -133,8 +133,8 @@ Against a running instance, these two say whether the rewrite and the Host are
 both right:
 
 ```bash
-curl -ik https://localhost:3000/__auth/auth/v1/apps/$APP_ID/branding.css   # 200 text/css
-curl -ik -X POST https://localhost:3000/__auth/oauth2/token                # 400 grant_type is required
+curl -ik https://localhost:3000/__pontive/auth/v1/apps/$APP_ID/branding.css   # 200 text/css
+curl -ik -X POST https://localhost:3000/__pontive/oauth2/token                # 400 grant_type is required
 ```
 
 A 200 stylesheet means the instance resolved, which only happens if the auth

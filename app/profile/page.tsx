@@ -34,7 +34,7 @@ export default function ProfilePage() {
             <h3>This browser holds a first-party session</h3>
             <p>
               It was rebuilt from the refresh cookie on{" "}
-              <code className="pv-code">/__auth</code>, not from anything stored
+              <code className="pv-code">/__pontive</code>, not from anything stored
               in the page.
             </p>
           </div>

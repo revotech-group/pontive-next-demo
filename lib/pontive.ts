@@ -4,7 +4,7 @@ import { pontiveAuth, type PontiveAuth } from "@pontive/pontkit-nextjs/server";
  * The server's view of the session the widgets keep in the browser.
  *
  * No client secret, so the SDK runs in browser mode: the widgets sign the user
- * in and are the only thing that refreshes. Through the /__auth proxy the auth
+ * in and are the only thing that refreshes. Through the /__pontive proxy the auth
  * server keeps an HttpOnly access-token cookie on this origin, and the server
  * reads and verifies that — it never spends the refresh token itself, so
  * refresh-token rotation never sees it spent twice.
@@ -19,7 +19,7 @@ export function pontive(): PontiveAuth {
     // The app's issuer is its auth domain.
     issuer: `https://${process.env.PONTIVE_AUTH_HOST}`,
     clientId: process.env.NEXT_PUBLIC_PONTIVE_APP_ID!,
-    authPath: process.env.NEXT_PUBLIC_PONTIVE_AUTH_DOMAIN || "/__auth",
+    authPath: process.env.NEXT_PUBLIC_PONTIVE_AUTH_DOMAIN || "/__pontive",
   });
 
   return instance;

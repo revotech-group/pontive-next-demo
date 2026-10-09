@@ -3,7 +3,7 @@ export function SiteFooter() {
     <footer className="pv-footer">
       <div className="pv-container pv-footer__inner">
         <span>
-          Auth served from <code className="pv-code">/__auth</code> on this
+          Auth served from <code className="pv-code">/__pontive</code> on this
           origin
         </span>
         <span className="pv-footer__spacer" />

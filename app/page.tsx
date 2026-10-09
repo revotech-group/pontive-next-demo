@@ -54,7 +54,7 @@ export default function Home() {
           <h1>Auth on this app&apos;s own origin</h1>
           <p>
             The auth endpoints are served from{" "}
-            <code className="pv-code">/__auth</code>, rewritten onto the auth
+            <code className="pv-code">/__pontive</code>, rewritten onto the auth
             server by <code className="pv-code">next.config.mjs</code>. The
             browser never talks to another origin, so every cookie it gets back
             is first-party.
@@ -93,7 +93,7 @@ export default function Home() {
 
               <div className="pv-flow__node pv-flow__node--origin">
                 <span className="pv-flow__label">This app</span>
-                <span className="pv-flow__title">/__auth/auth/v1/*</span>
+                <span className="pv-flow__title">/__pontive/auth/v1/*</span>
                 <span className="pv-flow__note">A rewrite, not a redirect</span>
               </div>
 

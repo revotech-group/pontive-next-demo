@@ -7,7 +7,7 @@ export default function SignInPage() {
         <span className="pv-kicker">Same origin</span>
         <h1>Welcome back</h1>
         <p>
-          This form talks to <code className="pv-code">/__auth</code> on this
+          This form talks to <code className="pv-code">/__pontive</code> on this
           origin. Nothing crosses to another host.
         </p>
       </div>
