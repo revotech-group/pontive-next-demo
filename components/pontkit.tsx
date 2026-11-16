@@ -24,4 +24,5 @@ export {
   AccountMenu,
   AccountSettings,
   OrganizationSwitcher,
+  MemberManagement,
 } from "@pontive/pontkit-nextjs";

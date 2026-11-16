@@ -13,13 +13,27 @@ import { Provider } from "./pontkit";
  * which is read in next.config.mjs at build time and never shipped to the
  * browser.
  */
-const env: EnvConfig = {
+/**
+ * `scope` is what sign-in asks for, and it replaces the default
+ * `openid email profile`, so those stay listed. The three `pontive:org:member:*`
+ * scopes let `<MemberManagement>` on /members draw a management-API token
+ * (pontive-spec 41): the app must be allowed them ("Organization member
+ * management for end users" on the app), refresh tokens must be on, and the
+ * user's organization roles still decide what each person can do. They never
+ * ride on the app's own access token, so the server routes here never see them.
+ *
+ * `scope` is newer than the EnvConfig type the React bindings were built
+ * against, hence the widened type; pontkit-core reads it at runtime.
+ */
+const env: EnvConfig & { scope?: string } = {
   domain: process.env.NEXT_PUBLIC_PONTIVE_AUTH_DOMAIN!,
   appId: process.env.NEXT_PUBLIC_PONTIVE_APP_ID!,
   apiBaseUrl: process.env.NEXT_PUBLIC_PONTIVE_API_BASE_URL!,
   signinUrl: "/signin",
   signupUrl: "/signup",
   signinRedirectUrl: "/",
+  scope:
+    "openid email profile pontive:org:member:read pontive:org:member:manage pontive:org:member:invite",
 };
 
 export function Providers({ children }: { children: React.ReactNode }) {

@@ -8,6 +8,7 @@ import { ThemeToggle } from "@/components/theme-toggle";
 const links = [
   { href: "/", label: "Overview" },
   { href: "/profile", label: "Account" },
+  { href: "/members", label: "Members" },
   { href: "/server", label: "Server" },
 ];
 
