@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useSyncExternalStore } from "react";
 
 type Theme = "light" | "dark";
 
@@ -10,24 +10,28 @@ function readTheme(): Theme {
     : "light";
 }
 
+/** Re-render whenever anything changes `data-theme` on <html>. */
+function subscribe(onChange: () => void) {
+  const observer = new MutationObserver(onChange);
+  observer.observe(document.documentElement, {
+    attributes: true,
+    attributeFilter: ["data-theme"],
+  });
+  return () => observer.disconnect();
+}
+
 /**
  * Flips `data-theme` on <html>, which themes the app chrome and the widgets
  * together — the sign-in card follows because core-elements and the project's
  * branding.css key off the same attribute.
  *
- * State is seeded in an effect rather than during render: `ThemeScript` has
- * already written the attribute by the time this hydrates, so reading it on the
- * server (where there is no document) or during render would disagree with the
- * markup React just produced.
+ * The attribute is the state. `ThemeScript` has already written it by the time
+ * this hydrates, but there is no document on the server, so the server snapshot
+ * is "light": React hydrates with that, matching the markup it produced, then
+ * re-renders with the attribute's value.
  */
 export function ThemeToggle() {
-  const [theme, setTheme] = useState<Theme>("light");
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setTheme(readTheme());
-    setMounted(true);
-  }, []);
+  const theme = useSyncExternalStore<Theme>(subscribe, readTheme, () => "light");
 
   function toggle() {
     const next: Theme = readTheme() === "dark" ? "light" : "dark";
@@ -37,10 +41,9 @@ export function ThemeToggle() {
     } catch {
       // A browser with storage blocked still gets the theme for this page.
     }
-    setTheme(next);
   }
 
-  const isDark = mounted && theme === "dark";
+  const isDark = theme === "dark";
 
   return (
     <button
