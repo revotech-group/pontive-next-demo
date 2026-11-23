@@ -1,6 +1,5 @@
 "use client";
 
-import type { EnvConfig } from "@pontive/pontkit-nextjs";
 import { Provider } from "./pontkit";
 
 /**
@@ -11,7 +10,11 @@ import { Provider } from "./pontkit";
  *
  * Every value here is public. The auth server's real hostname is `PONTIVE_AUTH_HOST`,
  * which is read in next.config.mjs at build time and never shipped to the
- * browser.
+ * browser. The SDK is not passed: `<Provider>` injects `Auth` from
+ * `@pontive/oidc-client` itself.
+ *
+ * `apiBaseUrl` is the management gateway the account widgets call; it must be
+ * absolute, since the auth proxy does not forward `/me` or `/mgmt/v1`.
  */
 /**
  * `scope` is what sign-in asks for, and it replaces the default
@@ -21,21 +24,22 @@ import { Provider } from "./pontkit";
  * management for end users" on the app), refresh tokens must be on, and the
  * user's organization roles still decide what each person can do. They never
  * ride on the app's own access token, so the server routes here never see them.
- *
- * `scope` is newer than the EnvConfig type the React bindings were built
- * against, hence the widened type; pontkit-core reads it at runtime.
  */
-const env: EnvConfig & { scope?: string } = {
-  domain: process.env.NEXT_PUBLIC_PONTIVE_AUTH_DOMAIN!,
-  appId: process.env.NEXT_PUBLIC_PONTIVE_APP_ID!,
-  apiBaseUrl: process.env.NEXT_PUBLIC_PONTIVE_API_BASE_URL!,
-  signinUrl: "/signin",
-  signupUrl: "/signup",
-  signinRedirectUrl: "/",
-  scope:
-    "openid email profile pontive:org:member:read pontive:org:member:manage pontive:org:member:invite",
-};
+const SCOPE =
+  "openid email profile pontive:org:member:read pontive:org:member:manage pontive:org:member:invite";
 
 export function Providers({ children }: { children: React.ReactNode }) {
-  return <Provider env={env}>{children}</Provider>;
+  return (
+    <Provider
+      domain={process.env.NEXT_PUBLIC_PONTIVE_AUTH_DOMAIN!}
+      appId={process.env.NEXT_PUBLIC_PONTIVE_APP_ID!}
+      apiBaseUrl={process.env.NEXT_PUBLIC_PONTIVE_API_BASE_URL!}
+      signinUrl="/signin"
+      signupUrl="/signup"
+      signinRedirectUrl="/"
+      scope={SCOPE}
+    >
+      {children}
+    </Provider>
+  );
 }

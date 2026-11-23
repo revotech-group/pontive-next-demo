@@ -58,7 +58,7 @@ export function SiteHeader() {
                 because /server renders from the access-token cookie and must
                 be re-requested to show the new organization. */}
             <OrganizationSwitcher reloadOnSwitch />
-            <AccountMenu accountSettingsPath="/profile" />
+            <AccountMenu accountSettingsUrl="/profile" />
           </SignedIn>
         </div>
       </div>

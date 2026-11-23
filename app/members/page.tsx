@@ -24,7 +24,7 @@ export default function MembersPage() {
           organizationId means that organization, and the widget reloads when
           the organization switcher moves the session.
         */}
-        <MemberManagement mode="PAGE" organizationId="" />
+        <MemberManagement mode="page" organizationId="" />
       </SignedIn>
 
       <SignedOut>

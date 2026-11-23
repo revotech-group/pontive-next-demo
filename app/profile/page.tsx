@@ -40,7 +40,7 @@ export default function ProfilePage() {
           </div>
         </div>
 
-        <AccountSettings mode="PAGE" />
+        <AccountSettings mode="page" />
       </SignedIn>
 
       <SignedOut>
