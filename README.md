@@ -82,6 +82,32 @@ the refresh token, so refresh-token rotation never sees it spent twice.
 
 `PONTIVE_AUTH_HOST` is read at runtime for this, not only at build.
 
+## Billing
+
+`/billing` shows the kit's billing widgets (beta: they need the instance's
+`billing` capability). It lists the billing accounts the signed-in user may
+see through the kit's account client (`useAccountClient()`,
+`listBillingAccounts()`), lets the user pick their own or the current
+organization's, and shows:
+
+- `<Checkout>` when that account has no plan, offering the packages in
+  `NEXT_PUBLIC_PONTIVE_BILLING_PACKAGES`, with `success-url` and `cancel-url`
+  on this origin;
+- `<BillingPortal>` when it has one: change package, pay invoices, manage
+  payment methods.
+
+An owner of an organization that billing suspended for non-payment opens its
+portal with `subject` set to the organization, either from the list (billing
+marks it `recovery`) or by its id under "Recover a suspended organization",
+and sees only the recovery actions.
+
+The instance has to allow it: the app's Allowed scopes include
+`pontive:billing:read` and `pontive:billing:pay` (requested at sign-in in
+`components/providers.tsx`), refresh tokens are on (the widgets' management
+token comes from a refresh), and the deployed origin is registered on the app.
+`/billing` sets the Content Security Policy pontkit-core's
+`docs/kit/checkout.md` publishes (`next.config.mjs`).
+
 ## Running it
 
 ```bash

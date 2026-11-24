@@ -881,3 +881,118 @@ body.pv-body {
   font: inherit;
   font-size: 0.875rem;
 }
+
+/* ==========================================================================
+   Billing page
+   ========================================================================== */
+
+.pv-billing {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+/* "Bill to": the user's own account or an organization's. */
+.pv-billing__choices {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+  gap: 0.75rem;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.pv-billing__choices legend {
+  margin-bottom: 0.5rem;
+}
+
+.pv-billing__choice {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.85rem 1rem;
+  border: 1px solid var(--pv-line);
+  border-radius: 12px;
+  background: var(--pv-surface);
+  cursor: pointer;
+  transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+
+.pv-billing__choice:hover {
+  border-color: var(--pv-line-strong);
+}
+
+.pv-billing__choice[data-selected] {
+  border-color: var(--pv-accent-edge);
+  background: var(--pv-accent-wash);
+}
+
+.pv-billing__choice input {
+  accent-color: var(--pv-accent);
+}
+
+.pv-billing__choice-body {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+}
+
+.pv-billing__choice-label {
+  font-weight: 600;
+  color: var(--pv-ink);
+}
+
+.pv-billing__choice-detail {
+  font-size: 0.83rem;
+  color: var(--pv-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pv-billing__bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.pv-billing__spacer {
+  flex: 1;
+}
+
+.pv-billing .pv-billing__notice {
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--pv-accent-edge);
+  border-radius: 10px;
+  background: var(--pv-accent-wash);
+  color: var(--pv-ink);
+  font-size: 0.9rem;
+}
+
+.pv-billing .pv-billing__hint,
+.pv-billing .pv-billing__error {
+  font-size: 0.88rem;
+  color: var(--pv-muted);
+}
+
+.pv-billing .pv-billing__error {
+  color: var(--pv-accent);
+}
+
+.pv-billing__loading {
+  color: var(--pv-muted);
+  font-size: 0.9rem;
+}
+
+.pv-billing__recovery summary {
+  cursor: pointer;
+  font-weight: 600;
+  color: var(--pv-ink);
+}
+
+.pv-billing__recovery p {
+  margin-top: 0.5rem;
+  font-size: 0.9rem;
+}

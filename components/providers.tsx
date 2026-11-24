@@ -24,9 +24,18 @@ import { Provider } from "./pontkit";
  * management for end users" on the app), refresh tokens must be on, and the
  * user's organization roles still decide what each person can do. They never
  * ride on the app's own access token, so the server routes here never see them.
+ *
+ * `pontive:billing:read` and `pontive:billing:pay` do the same for
+ * `<Checkout>` and `<BillingPortal>` on /billing (billing-svc
+ * docs/m17-design.md, P70): the app must be allowed them, and the same refresh
+ * gives their management token. They are not cut by roles: billing decides
+ * each route for the Customer it resolves.
  */
-const SCOPE =
-  "openid email profile pontive:org:member:read pontive:org:member:manage pontive:org:member:invite";
+const SCOPE = [
+  "openid email profile",
+  "pontive:org:member:read pontive:org:member:manage pontive:org:member:invite",
+  "pontive:billing:read pontive:billing:pay",
+].join(" ");
 
 export function Providers({ children }: { children: React.ReactNode }) {
   return (

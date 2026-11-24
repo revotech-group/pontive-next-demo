@@ -49,6 +49,85 @@ const nextConfig = {
   async rewrites() {
     return authProxyRewrites({ authHost: process.env.PONTIVE_AUTH_HOST });
   },
+
+  /**
+   * The billing page's Content Security Policy: the one pontkit-core's
+   * docs/kit/checkout.md publishes for a page with `<pont-checkout>` or
+   * `<pont-billing-portal>`, set here so the documented policy is tested where
+   * a client would use it (billing-svc docs/m17-design.md, R12).
+   */
+  async headers() {
+    return [
+      {
+        source: "/billing",
+        headers: [{ key: "Content-Security-Policy", value: billingCsp() }],
+      },
+    ];
+  },
 };
+
+/**
+ * Built from the origins the page really talks to:
+ *
+ * - Stripe.js and the Payment Element's frames (`js.stripe.com`), 3D Secure
+ *   and redirecting methods (`hooks.stripe.com`), Stripe's own calls
+ *   (`api.stripe.com`, and Google Maps for its address autocomplete).
+ * - The management gateway the billing routes are on
+ *   (NEXT_PUBLIC_PONTIVE_API_BASE_URL).
+ * - The kit itself, which the loader fetches at the release the platform
+ *   names: from the platform's CDN (`cdn.pontive.com`), falling back to the
+ *   public npm CDNs.
+ * - Everything else (the auth server, the theme, the widgets' words) is on
+ *   this origin through /__pontive.
+ *
+ * `'unsafe-inline'` in `script-src` is for Next's inline bootstrap and the
+ * theme script, and in `style-src` for the style attributes the elements
+ * set; `'unsafe-eval'` only for `next dev`. A header applies to a page load
+ * only, so the policy covers /billing opened directly, not a client-side
+ * navigation to it from another page.
+ */
+function billingCsp() {
+  const dev = process.env.NODE_ENV === "development";
+  const api = originOf(process.env.NEXT_PUBLIC_PONTIVE_API_BASE_URL);
+  const kit = [
+    "https://cdn.pontive.com",
+    "https://cdn.jsdelivr.net",
+    "https://unpkg.com",
+    "https://esm.sh",
+  ];
+  const stripe = ["https://js.stripe.com", "https://*.js.stripe.com"];
+
+  const directives = {
+    "default-src": ["'self'"],
+    "script-src": ["'self'", "'unsafe-inline'", ...(dev ? ["'unsafe-eval'"] : []), ...kit, ...stripe],
+    "style-src": ["'self'", "'unsafe-inline'", ...kit, "https://fonts.googleapis.com"],
+    "font-src": ["'self'", "data:", "https://fonts.gstatic.com"],
+    "img-src": ["'self'", "data:", "blob:", "https:"],
+    "frame-src": [...stripe, "https://hooks.stripe.com"],
+    "connect-src": [
+      "'self'",
+      ...(api ? [api] : []),
+      "https://api.stripe.com",
+      "https://maps.googleapis.com",
+      ...kit,
+    ],
+    "object-src": ["'none'"],
+    "base-uri": ["'self'"],
+    "form-action": ["'self'"],
+    "frame-ancestors": ["'none'"],
+  };
+
+  return Object.entries(directives)
+    .map(([name, values]) => `${name} ${values.join(" ")}`)
+    .join("; ");
+}
+
+function originOf(url) {
+  try {
+    return url ? new URL(url).origin : null;
+  } catch {
+    return null;
+  }
+}
 
 export default nextConfig;
